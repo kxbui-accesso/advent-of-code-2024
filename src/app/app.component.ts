@@ -10,11 +10,11 @@ import { FormsModule } from '@angular/forms';
 })
 export class AppComponent {
   input = `3   4
-4   3
-2   5
-1   3
-3   9
-3   3`;
+  4   3
+  2   5
+  1   3
+  3   9
+  3   3`;
   result = '';
 
   onSubmit() {
@@ -22,7 +22,8 @@ export class AppComponent {
     const sortedArr1 = [...arr1].sort();
     const sortedArr2 = [...arr2].sort();
     this.result = sortedArr1.reduce((total, curr, i) => {
-      return (total += Math.abs(curr - sortedArr2[i]));
+      const freq = sortedArr2.filter((item) => curr === item).length;
+      return (total += curr * freq);
     }, 0);
   }
 
