@@ -9,22 +9,43 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `3   4
-  4   3
-  2   5
-  1   3
-  3   9
-  3   3`;
+  input = `7 6 4 2 1
+1 2 7 8 9
+9 7 6 2 1
+1 3 2 4 5
+8 6 4 4 1
+1 3 6 7 9`;
   result = '';
 
   onSubmit() {
-    const { arr1, arr2 } = this.parseColumn(this.input);
-    const sortedArr1 = [...arr1].sort();
-    const sortedArr2 = [...arr2].sort();
-    this.result = sortedArr1.reduce((total, curr, i) => {
-      const freq = sortedArr2.filter((item) => curr === item).length;
-      return (total += curr * freq);
-    }, 0);
+    const arr = this.parseRow(this.input);
+    let safeRows = 0;
+    for (let y = 0; y < arr.length; y++) {
+      const arr1 = arr[y]
+        .trim()
+        .split(/\s*[\s,]\s*/)
+        .map((item: any) => +item);
+      let increasing = false;
+      let decreasing = false;
+      let dist = [];
+      for (let i = 1; i < arr1.length; i++) {
+        if (arr1[i] > arr1[i - 1]) increasing = true;
+        else if (arr1[i] < arr1[i - 1]) decreasing = true;
+        dist.push(Math.abs(arr1[i] - arr1[i - 1]));
+      }
+      if (dist.some((item) => item === 0 || item < 1 || item > 3)) {
+      } else {
+        safeRows =
+          (increasing && decreasing) || (!increasing && !decreasing)
+            ? safeRows
+            : safeRows + 1;
+      }
+    }
+    this.result = `${safeRows}`;
+  }
+
+  parseRow(data: any): any[] {
+    return data.split(/\r?\n|\r|\n/g);
   }
 
   parseColumn(data: any): { arr1: any[]; arr2: any[] } {
