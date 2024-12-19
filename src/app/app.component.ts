@@ -5,7 +5,6 @@ const X = 'X';
 const M = 'M';
 const A = 'A';
 const S = 'S';
-const WORD_COUNT = 4;
 
 @Component({
   selector: 'app-root',
@@ -32,7 +31,7 @@ MXMXAXMASX`;
     let count = 0;
     for (let row = 0; row < data.length; row++) {
       for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === X) {
+        if (data[row][col] === A) {
           count += this.checkWord(data, row, col);
         }
       }
@@ -44,163 +43,65 @@ MXMXAXMASX`;
     let count = 0;
     const width = data[0].length;
     const height = data.length;
-    if (this.checkLeftLength(col)) {
-      count = this.checkLeftSide(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkRightLength(width, col)) {
-      count = this.checkRightSide(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkTopLength(row)) {
-      count = this.checkTop(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkBottomLength(height, row)) {
-      count = this.checkBottom(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkTopLength(row) && this.checkLeftLength(col)) {
-      count = this.checkTopLeft(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkTopLength(row) && this.checkRightLength(width, col)) {
-      count = this.checkTopRight(data, row, col) ? count + 1 : count;
-    }
-    if (this.checkBottomLength(height, row) && this.checkLeftLength(col)) {
-      count = this.checkBottomLeft(data, row, col) ? count + 1 : count;
-    }
-    if (
-      this.checkBottomLength(height, row) &&
-      this.checkRightLength(width, col)
-    ) {
-      count = this.checkBottomRight(data, row, col) ? count + 1 : count;
+    if (this.checkLeftLength(col) && this.checkRightLength(width, col) && this.checkTopLength(row) && this.checkBottomLength(height, row)) {
+      count = this.checkForward(data, row, col) ? count + 1 : count;
+      count = this.checkBackward(data, row, col) ? count + 1 : count;
+      count = this.checkCW(data, row, col) ? count + 1 : count;
+      count = this.checkCCW(data, row, col) ? count + 1 : count;
     }
     return count;
   }
 
-  checkBottomRight(data: any[][], row: number, col: number) {
-    const matched =
-      data[row + 1][col + 1] === M &&
-      data[row + 2][col + 2] === A &&
-      data[row + 3][col + 3] === S;
-    matched &&
-      console.log(
-        `${row}-${col} ${row + 1}-${col + 1} ${row + 2}-${col + 2} ${row + 3}-${
-          col + 3
-        }`
-      );
-    return matched;
-  }
-
-  checkBottomLeft(data: any[][], row: number, col: number) {
-    const matched =
-      data[row + 1][col - 1] === M &&
-      data[row + 2][col - 2] === A &&
-      data[row + 3][col - 3] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row + 1}-${col - 1} ${row + 2}-${col - 2} ${row + 3}-${
-          col - 3
-        }`
-      );
-    return matched;
-  }
-
-  checkTopRight(data: any[][], row: number, col: number) {
-    const matched =
-      data[row - 1][col + 1] === M &&
-      data[row - 2][col + 2] === A &&
-      data[row - 3][col + 3] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row - 1}-${col + 1} ${row - 2}-${col + 2} ${row - 3}-${
-          col + 3
-        }`
-      );
-    return matched;
-  }
-
-  checkTopLeft(data: any[][], row: number, col: number) {
+  checkForward(data: any[][], row: number, col: number) {
     const matched =
       data[row - 1][col - 1] === M &&
-      data[row - 2][col - 2] === A &&
-      data[row - 3][col - 3] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row - 1}-${col - 1} ${row - 2}-${col - 2} ${row - 3}-${
-          col - 3
-        }`
-      );
+      data[row + 1][col - 1] === S &&
+      data[row - 1][col + 1] === M &&
+      data[row + 1][col + 1] === S
     return matched;
   }
 
-  checkBottom(data: any[][], row: number, col: number) {
+  checkBackward(data: any[][], row: number, col: number) {
     const matched =
-      data[row + 1][col] === M &&
-      data[row + 2][col] === A &&
-      data[row + 3][col] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row + 1}-${col} ${row + 2}-${col} ${row + 3}-${col}`
-      );
+      data[row - 1][col - 1] === S &&
+      data[row + 1][col - 1] === M &&
+      data[row - 1][col + 1] === S &&
+      data[row + 1][col + 1] === M
     return matched;
   }
 
-  checkTop(data: any[][], row: number, col: number) {
+  checkCW(data: any[][], row: number, col: number) {
     const matched =
-      data[row - 1][col] === M &&
-      data[row - 2][col] === A &&
-      data[row - 3][col] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row - 1}-${col} ${row - 2}-${col} ${row - 3}-${
-          col
-        }`
-      );
+      data[row - 1][col - 1] === S &&
+      data[row + 1][col - 1] === S &&
+      data[row - 1][col + 1] === M &&
+      data[row + 1][col + 1] === M
     return matched;
   }
 
-  checkRightSide(data: any[][], row: number, col: number) {
+  checkCCW(data: any[][], row: number, col: number) {
     const matched =
-      data[row][col + 1] === M &&
-      data[row][col + 2] === A &&
-      data[row][col + 3] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row}-${col + 1} ${row}-${col + 2} ${row}-${col + 3}`
-      );
-    return matched;
-  }
-
-  checkLeftSide(data: any[][], row: number, col: number) {
-    const matched =
-      data[row][col - 1] === M &&
-      data[row][col - 2] === A &&
-      data[row][col - 3] === S;
-
-    matched &&
-      console.log(
-        `${row}-${col} ${row}-${col - 1} ${row}-${col - 2} ${row}-${col - 3}`
-      );
+      data[row - 1][col - 1] === M &&
+      data[row + 1][col - 1] === M &&
+      data[row - 1][col + 1] === S &&
+      data[row + 1][col + 1] === S
     return matched;
   }
 
   checkLeftLength(i: number) {
-    return i >= WORD_COUNT - 1;
+    return i >= 1;
   }
 
   checkRightLength(width: number, i: number) {
-    return width - i >= WORD_COUNT;
+    return i + 1 < width;
   }
 
   checkTopLength(i: number) {
-    return i >= WORD_COUNT - 1;
+    return i >= 1;
   }
 
   checkBottomLength(height: number, i: number) {
-    return height - i >= WORD_COUNT;
+    return i + 1 < height;
   }
 
   parseRow(data: any): any[] {
