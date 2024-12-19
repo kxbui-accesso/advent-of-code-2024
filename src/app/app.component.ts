@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 const UP = '^';
@@ -25,25 +25,60 @@ export class AppComponent {
 ........#.
 #.........
 ......#...`;
-  result = '';
-  steps = new Set();
+  result = signal('');
+  steps = new Set<string>();
 
   onSubmit() {
     const map = this.parseRow(this.input).map((item) => item.split(''));
-    let currPos = this.findStartingPos(map);
-    if (currPos) {
-      this.steps.clear();
-      this.addToSteps(currPos);
-      while (!this.isOutOfMap(map, currPos)) {
-        if (this.hasObstacle(map, currPos)) {
-          currPos = { ...currPos, dir: this.changeDir(currPos.dir) };
-        } else {
-          currPos = { ...this.move(currPos) };
-          this.addToSteps(currPos)
+    let startPos = this.findStartingPos(map);
+    let options = 0;
+    this.result.set('...waiting');
+
+    if (startPos) {
+      setTimeout(() => {
+        if (this.canGetOut(map, startPos)) {
+          const path = new Set(
+            Array.from(this.steps).map((item) => {
+              const [_, row, col] = item.split('-');
+              return `${row}-${col}`;
+            })
+          );
+          Array.from(path).forEach((entry) => {
+            const [row, col] = entry.split('-');
+            const newMap = JSON.parse(JSON.stringify(map));
+            newMap[row][col] = OBSTACLE;
+            if (!this.canGetOut(newMap, startPos)) {
+              options++;
+            }
+          });
         }
+        this.result.set(`${options}`);
+      }, 0);
+    }
+  }
+
+  hasVisited(currPos: any): boolean {
+    return this.steps.has(this.formatStep(currPos));
+  }
+
+  canGetOut(
+    map: any[][],
+    startPos: { dir: string; row: number; col: number }
+  ): boolean {
+    let currPos = { ...startPos };
+    this.steps.clear();
+    while (!this.isOutOfMap(map, currPos)) {
+      if (this.hasObstacle(map, currPos)) {
+        currPos = { ...currPos, dir: this.changeDir(currPos.dir) };
+      } else {
+        currPos = { ...this.move(currPos) };
+        if (this.hasVisited(currPos)) {
+          return false;
+        }
+        this.addToSteps(currPos);
       }
     }
-    this.result = `${this.steps.size}`;
+    return true;
   }
 
   move(currPos: { dir: string; row: number; col: number }): {
@@ -125,8 +160,12 @@ export class AppComponent {
     };
   }
 
-  addToSteps(currPos: { row: number; col: number }) {
-    this.steps.add(`${currPos.row}-${currPos.col}`);
+  addToSteps(currPos: any) {
+    this.steps.add(this.formatStep(currPos));
+  }
+
+  formatStep(currPos: { dir: string; row: number; col: number }) {
+    return `${currPos.dir}-${currPos.row}-${currPos.col}`;
   }
 
   findStartingPos(
