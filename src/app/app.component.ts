@@ -1,6 +1,16 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+const ZERO = 0;
+const M = 1;
+const U = 2;
+const L = 3;
+const OP = 4;
+const D1 = 5;
+const COMMA = 6;
+const D2 = 7;
+const CP = 8;
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -9,56 +19,90 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `7 6 4 2 1
-1 2 7 8 9
-9 7 6 2 1
-1 3 2 4 5
-8 6 4 4 1
-1 3 6 7 9`;
+  input = `xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))`;
   result = '';
 
   onSubmit() {
-    const arr = this.parseRow(this.input);
-    let safeRows = 0;
-    for (let y = 0; y < arr.length; y++) {
-      const arr1 = arr[y]
-        .trim()
-        .split(/\s*[\s,]\s*/)
-        .map((item: any) => +item);
-      if (!this.isPassed(arr1)) {
-        let count = 0;
-        for (let x = 0; x < arr1.length; x++) {
-          if (this.isPassed(arr1.filter((_: any, i: number) => i !== x))) {
-            count++;
-            if (count === 1) {
-              safeRows++;
-              break;
-            }
-          }
-        }
-      } else {
-        safeRows++;
+    const str = this.input;
+    let res = 0;
+    let prevStage: number = ZERO;
+    let number1 = '',
+      number2 = '';
+    for (let i = 0; i < str.length; i++) {
+      const stage = this.checkStage(prevStage, str[i]);
+      if ((prevStage === OP || prevStage === D1) && stage === D1) {
+        number1 += str[i];
       }
+      if ((prevStage === COMMA || prevStage === D2) && stage === D2) {
+        number2 += str[i];
+      }
+      if (prevStage === D2 && stage === CP) {
+        res += +number1 * +number2;
+      }
+      if (stage === ZERO || stage === M) {
+        (number1 = ''), (number2 = '');
+      }
+      prevStage = stage;
     }
-    this.result = `${safeRows}`;
+    this.result = `${res}`;
   }
 
-  isPassed(arr1: any[]): boolean {
-    let increasing = false;
-    let decreasing = false;
-    let dist = [];
-    for (let i = 1; i < arr1.length; i++) {
-      if (arr1[i] > arr1[i - 1]) increasing = true;
-      else if (arr1[i] < arr1[i - 1]) decreasing = true;
-      dist.push(Math.abs(arr1[i] - arr1[i - 1]));
+  checkStage(stage: number, char: string): number {
+    switch (stage) {
+      case ZERO:
+        if (char === 'm') {
+          return M;
+        }
+        return 0;
+      case M:
+        if (char === 'u') {
+          return U;
+        }
+        return 0;
+      case U:
+        if (char === 'l') {
+          return L;
+        }
+        return 0;
+      case L:
+        if (char === '(') {
+          return OP;
+        }
+        return 0;
+      case OP:
+        if (this.isNumeric(char)) {
+          return D1;
+        }
+        return 0;
+      case D1:
+        if (char === ',') {
+          return COMMA;
+        }
+        if (!this.isNumeric(char)) return 0;
+        return stage;
+      case COMMA:
+        if (this.isNumeric(char)) {
+          return D2;
+        }
+        return 0;
+      case D2:
+        if (char === ')') {
+          return CP;
+        }
+        if (!this.isNumeric(char)) return 0;
+        return stage;
+      case CP:
+        if (char === 'm') {
+          return M;
+        }
+        return 0;
+      default:
+        return 0;
     }
-    if (dist.some((item) => item === 0 || item < 1 || item > 3)) {
-      return false;
-    } else {
-      return (increasing && decreasing) || (!increasing && !decreasing)
-        ? false
-        : true;
-    }
+  }
+
+  isNumeric(str: string) {
+    return /^\d+$/.test(str);
   }
 
   parseRow(data: any): any[] {
