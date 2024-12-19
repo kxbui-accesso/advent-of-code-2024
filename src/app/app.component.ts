@@ -25,23 +25,40 @@ export class AppComponent {
         .trim()
         .split(/\s*[\s,]\s*/)
         .map((item: any) => +item);
-      let increasing = false;
-      let decreasing = false;
-      let dist = [];
-      for (let i = 1; i < arr1.length; i++) {
-        if (arr1[i] > arr1[i - 1]) increasing = true;
-        else if (arr1[i] < arr1[i - 1]) decreasing = true;
-        dist.push(Math.abs(arr1[i] - arr1[i - 1]));
-      }
-      if (dist.some((item) => item === 0 || item < 1 || item > 3)) {
+      if (!this.isPassed(arr1)) {
+        let count = 0;
+        for (let x = 0; x < arr1.length; x++) {
+          if (this.isPassed(arr1.filter((_: any, i: number) => i !== x))) {
+            count++;
+            if (count === 1) {
+              safeRows++;
+              break;
+            }
+          }
+        }
       } else {
-        safeRows =
-          (increasing && decreasing) || (!increasing && !decreasing)
-            ? safeRows
-            : safeRows + 1;
+        safeRows++;
       }
     }
     this.result = `${safeRows}`;
+  }
+
+  isPassed(arr1: any[]): boolean {
+    let increasing = false;
+    let decreasing = false;
+    let dist = [];
+    for (let i = 1; i < arr1.length; i++) {
+      if (arr1[i] > arr1[i - 1]) increasing = true;
+      else if (arr1[i] < arr1[i - 1]) decreasing = true;
+      dist.push(Math.abs(arr1[i] - arr1[i - 1]));
+    }
+    if (dist.some((item) => item === 0 || item < 1 || item > 3)) {
+      return false;
+    } else {
+      return (increasing && decreasing) || (!increasing && !decreasing)
+        ? false
+        : true;
+    }
   }
 
   parseRow(data: any): any[] {
