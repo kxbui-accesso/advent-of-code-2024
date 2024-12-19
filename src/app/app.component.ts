@@ -1,23 +1,11 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const ZERO = 0;
-const M = 1;
-const U = 2;
-const L = 3;
-const OP = 4;
-const D1 = 5;
-const COMMA = 6;
-const D2 = 7;
-const CP = 8;
-
-const D = 9;
-const O = 10;
-const N = 11;
-const SQ = 12;
-const T = 13;
-const D_OP = 14;
-const D_CP = 15;
+const X = 'X';
+const M = 'M';
+const A = 'A';
+const S = 'S';
+const WORD_COUNT = 4;
 
 @Component({
   selector: 'app-root',
@@ -27,161 +15,192 @@ const D_CP = 15;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))`;
+  input = `MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX`;
   result = '';
 
   onSubmit() {
-    const str = this.input;
-    let res = 0;
-    let prevStage: number = ZERO;
-    let number1 = '',
-      number2 = '';
-    let start = -1;
-    for (let i = 0; i < str.length; i++) {
-      const stage = this.checkStage(prevStage, str[i]);
-      if ((prevStage === OP || prevStage === D1) && stage === D1) {
-        number1 += str[i];
-      }
-      if ((prevStage === COMMA || prevStage === D2) && stage === D2) {
-        number2 += str[i];
-      }
-      if (prevStage === D2 && stage === CP) {
-        const action = this.findAction(str.slice(0, start));
-        if (!!action) {
-          res += +number1 * +number2;
+    const data = this.parseRow(this.input).map((item) => item.split(''));
+    let count = 0;
+    for (let row = 0; row < data.length; row++) {
+      for (let col = 0; col < data[row].length; col++) {
+        if (data[row][col] === X) {
+          count += this.checkWord(data, row, col);
         }
       }
-      if (stage === ZERO || stage === M) {
-        (number1 = ''), (number2 = '');
-      }
-      if (stage === M) {
-        start = i;
-      }
-      prevStage = stage;
     }
-    this.result = `${res}`;
+    this.result = `${count}`;
   }
 
-  findAction(str: string): boolean | null {
-    let prevStage = 0;
-    let action = '';
-    for (let i = str.length - 1; i >= 0; i--) {
-      const stage = this.checkDoStage(prevStage, str[i]);
-      if (stage >= D && stage <= D_CP) {
-        action = `${str[i]}${action}`;
-      }
-      if (prevStage !== ZERO && stage === D) {
-        return !action.includes("don't()");
-      }
-      if (stage === ZERO || stage === D) {
-        action = '';
-      }
-      prevStage = stage;
+  checkWord(data: any[][], row: number, col: number): number {
+    let count = 0;
+    const width = data[0].length;
+    const height = data.length;
+    if (this.checkLeftLength(col)) {
+      count = this.checkLeftSide(data, row, col) ? count + 1 : count;
     }
-    return true;
+    if (this.checkRightLength(width, col)) {
+      count = this.checkRightSide(data, row, col) ? count + 1 : count;
+    }
+    if (this.checkTopLength(row)) {
+      count = this.checkTop(data, row, col) ? count + 1 : count;
+    }
+    if (this.checkBottomLength(height, row)) {
+      count = this.checkBottom(data, row, col) ? count + 1 : count;
+    }
+    if (this.checkTopLength(row) && this.checkLeftLength(col)) {
+      count = this.checkTopLeft(data, row, col) ? count + 1 : count;
+    }
+    if (this.checkTopLength(row) && this.checkRightLength(width, col)) {
+      count = this.checkTopRight(data, row, col) ? count + 1 : count;
+    }
+    if (this.checkBottomLength(height, row) && this.checkLeftLength(col)) {
+      count = this.checkBottomLeft(data, row, col) ? count + 1 : count;
+    }
+    if (
+      this.checkBottomLength(height, row) &&
+      this.checkRightLength(width, col)
+    ) {
+      count = this.checkBottomRight(data, row, col) ? count + 1 : count;
+    }
+    return count;
   }
 
-  checkDoStage(stage: number, char: string): number {
-    switch (stage) {
-      case ZERO:
-        if (char === ')') {
-          return D_CP;
-        }
-        return 0;
-      case D_CP:
-        if (char === '(') {
-          return D_OP;
-        }
-        return 0;
-      case D_OP:
-        if (char === 't') {
-          return T;
-        }
-        if (char === 'o') {
-          return O;
-        }
-        return 0;
-      case T:
-        if (char === "'") {
-          return SQ;
-        }
-        return 0;
-      case SQ:
-        if (char === 'n') {
-          return N;
-        }
-        return 0;
-      case N:
-        if (char === 'o') {
-          return O;
-        }
-        return 0;
-      case O:
-        if (char === 'd') {
-          return D;
-        }
-        return 0;
-      default:
-        return 0;
-    }
+  checkBottomRight(data: any[][], row: number, col: number) {
+    const matched =
+      data[row + 1][col + 1] === M &&
+      data[row + 2][col + 2] === A &&
+      data[row + 3][col + 3] === S;
+    matched &&
+      console.log(
+        `${row}-${col} ${row + 1}-${col + 1} ${row + 2}-${col + 2} ${row + 3}-${
+          col + 3
+        }`
+      );
+    return matched;
   }
 
-  checkStage(stage: number, char: string): number {
-    switch (stage) {
-      case ZERO:
-        if (char === 'm') {
-          return M;
-        }
-        return 0;
-      case M:
-        if (char === 'u') {
-          return U;
-        }
-        return 0;
-      case U:
-        if (char === 'l') {
-          return L;
-        }
-        return 0;
-      case L:
-        if (char === '(') {
-          return OP;
-        }
-        return 0;
-      case OP:
-        if (this.isNumeric(char)) {
-          return D1;
-        }
-        return 0;
-      case D1:
-        if (char === ',') {
-          return COMMA;
-        }
-        if (!this.isNumeric(char)) return 0;
-        return stage;
-      case COMMA:
-        if (this.isNumeric(char)) {
-          return D2;
-        }
-        return 0;
-      case D2:
-        if (char === ')') {
-          return CP;
-        }
-        if (!this.isNumeric(char)) return 0;
-        return stage;
-      case CP:
-        if (char === 'm') {
-          return M;
-        }
-        return 0;
-      default:
-        return 0;
-    }
+  checkBottomLeft(data: any[][], row: number, col: number) {
+    const matched =
+      data[row + 1][col - 1] === M &&
+      data[row + 2][col - 2] === A &&
+      data[row + 3][col - 3] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row + 1}-${col - 1} ${row + 2}-${col - 2} ${row + 3}-${
+          col - 3
+        }`
+      );
+    return matched;
   }
 
-  isNumeric(str: string) {
-    return /^\d+$/.test(str);
+  checkTopRight(data: any[][], row: number, col: number) {
+    const matched =
+      data[row - 1][col + 1] === M &&
+      data[row - 2][col + 2] === A &&
+      data[row - 3][col + 3] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row - 1}-${col + 1} ${row - 2}-${col + 2} ${row - 3}-${
+          col + 3
+        }`
+      );
+    return matched;
+  }
+
+  checkTopLeft(data: any[][], row: number, col: number) {
+    const matched =
+      data[row - 1][col - 1] === M &&
+      data[row - 2][col - 2] === A &&
+      data[row - 3][col - 3] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row - 1}-${col - 1} ${row - 2}-${col - 2} ${row - 3}-${
+          col - 3
+        }`
+      );
+    return matched;
+  }
+
+  checkBottom(data: any[][], row: number, col: number) {
+    const matched =
+      data[row + 1][col] === M &&
+      data[row + 2][col] === A &&
+      data[row + 3][col] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row + 1}-${col} ${row + 2}-${col} ${row + 3}-${col}`
+      );
+    return matched;
+  }
+
+  checkTop(data: any[][], row: number, col: number) {
+    const matched =
+      data[row - 1][col] === M &&
+      data[row - 2][col] === A &&
+      data[row - 3][col] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row - 1}-${col} ${row - 2}-${col} ${row - 3}-${
+          col
+        }`
+      );
+    return matched;
+  }
+
+  checkRightSide(data: any[][], row: number, col: number) {
+    const matched =
+      data[row][col + 1] === M &&
+      data[row][col + 2] === A &&
+      data[row][col + 3] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row}-${col + 1} ${row}-${col + 2} ${row}-${col + 3}`
+      );
+    return matched;
+  }
+
+  checkLeftSide(data: any[][], row: number, col: number) {
+    const matched =
+      data[row][col - 1] === M &&
+      data[row][col - 2] === A &&
+      data[row][col - 3] === S;
+
+    matched &&
+      console.log(
+        `${row}-${col} ${row}-${col - 1} ${row}-${col - 2} ${row}-${col - 3}`
+      );
+    return matched;
+  }
+
+  checkLeftLength(i: number) {
+    return i >= WORD_COUNT - 1;
+  }
+
+  checkRightLength(width: number, i: number) {
+    return width - i >= WORD_COUNT;
+  }
+
+  checkTopLength(i: number) {
+    return i >= WORD_COUNT - 1;
+  }
+
+  checkBottomLength(height: number, i: number) {
+    return height - i >= WORD_COUNT;
   }
 
   parseRow(data: any): any[] {
