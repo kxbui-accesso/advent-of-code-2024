@@ -48,24 +48,48 @@ export class AppComponent {
     let total = 0;
     for (let row = 0; row < updates.length; row++) {
       const passed = this.testRow(updates[row]);
-      if (passed) {
-        total += +this.getMiddle(updates[row]);
+      if (!passed) {
+        const sortedArr = this.sort(updates[row]);
+        total += +this.getMiddle(sortedArr);
       }
     }
 
     this.result = `${total}`;
   }
 
+  swapElements(arr: any[], x: number, y: number) {
+    const b = arr[y];
+    arr[y] = arr[x];
+    arr[x] = b;
+    return arr;
+  }
+
+  isGreater(num1: number, num2: any): boolean {
+    const rules = this.ruleMap.get(num2);
+    return !!rules?.includes(num1);
+  }
+
   testRow(updates: any[]): boolean {
     for (let col = 0; col < updates.length; col++) {
       for (let i = col + 1; i < updates.length; i++) {
-        const rules = this.ruleMap.get(updates[i]);
-        if (rules?.includes(updates[col])) {
+        if (this.isGreater(updates[col], updates[i])) {
           return false;
         }
       }
     }
     return true;
+  }
+
+  sort(arr: any[]): any[] {
+    let updates = [...arr];
+    for (let col = 0; col < updates.length; col++) {
+      for (let i = col + 1; i < updates.length; i++) {
+        if (this.isGreater(updates[col], updates[i])) {
+          updates = this.swapElements(updates, col, i);
+        }
+      }
+    }
+    return updates;
   }
 
   getMiddle(arr: any[]) {
