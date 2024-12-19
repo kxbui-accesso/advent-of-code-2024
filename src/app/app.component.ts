@@ -1,11 +1,6 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const X = 'X';
-const M = 'M';
-const A = 'A';
-const S = 'S';
-
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -14,94 +9,77 @@ const S = 'S';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `MMMSXXMASM
-MSAMXMSMSA
-AMXSXMAAMM
-MSAMASMSMX
-XMASAMXAMM
-XXAMMXXAMA
-SMSMSASXSS
-SAXAMASAAA
-MAMMMXMMMM
-MXMXAXMASX`;
+  input = `47|53
+97|13
+97|61
+97|47
+75|29
+61|13
+75|53
+29|13
+97|29
+53|29
+61|53
+97|53
+61|29
+47|13
+75|47
+97|75
+47|61
+75|61
+47|29
+75|13
+53|13
+
+75,47,61,53,29
+97,61,53,29,13
+75,29,13
+75,97,47,61,53
+61,13,29
+97,13,75,29,47`;
   result = '';
+  ruleMap!: Map<any, any[]>;
 
   onSubmit() {
-    const data = this.parseRow(this.input).map((item) => item.split(''));
-    let count = 0;
-    for (let row = 0; row < data.length; row++) {
-      for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === A) {
-          count += this.checkWord(data, row, col);
+    const data = this.parseRow(this.input);
+    const splitPt = data.findIndex((item) => !item.trim());
+    this.ruleMap = this.storeRules(data.slice(0, splitPt));
+    const updates = data.slice(splitPt + 1).map((item) => item.split(','));
+    let total = 0;
+    for (let row = 0; row < updates.length; row++) {
+      const passed = this.testRow(updates[row]);
+      if (passed) {
+        total += +this.getMiddle(updates[row]);
+      }
+    }
+
+    this.result = `${total}`;
+  }
+
+  testRow(updates: any[]): boolean {
+    for (let col = 0; col < updates.length; col++) {
+      for (let i = col + 1; i < updates.length; i++) {
+        const rules = this.ruleMap.get(updates[i]);
+        if (rules?.includes(updates[col])) {
+          return false;
         }
       }
     }
-    this.result = `${count}`;
+    return true;
   }
 
-  checkWord(data: any[][], row: number, col: number): number {
-    let count = 0;
-    const width = data[0].length;
-    const height = data.length;
-    if (this.checkLeftLength(col) && this.checkRightLength(width, col) && this.checkTopLength(row) && this.checkBottomLength(height, row)) {
-      count = this.checkForward(data, row, col) ? count + 1 : count;
-      count = this.checkBackward(data, row, col) ? count + 1 : count;
-      count = this.checkCW(data, row, col) ? count + 1 : count;
-      count = this.checkCCW(data, row, col) ? count + 1 : count;
-    }
-    return count;
+  getMiddle(arr: any[]) {
+    return arr[(arr.length / 2) | 0];
   }
 
-  checkForward(data: any[][], row: number, col: number) {
-    const matched =
-      data[row - 1][col - 1] === M &&
-      data[row + 1][col - 1] === S &&
-      data[row - 1][col + 1] === M &&
-      data[row + 1][col + 1] === S
-    return matched;
-  }
-
-  checkBackward(data: any[][], row: number, col: number) {
-    const matched =
-      data[row - 1][col - 1] === S &&
-      data[row + 1][col - 1] === M &&
-      data[row - 1][col + 1] === S &&
-      data[row + 1][col + 1] === M
-    return matched;
-  }
-
-  checkCW(data: any[][], row: number, col: number) {
-    const matched =
-      data[row - 1][col - 1] === S &&
-      data[row + 1][col - 1] === S &&
-      data[row - 1][col + 1] === M &&
-      data[row + 1][col + 1] === M
-    return matched;
-  }
-
-  checkCCW(data: any[][], row: number, col: number) {
-    const matched =
-      data[row - 1][col - 1] === M &&
-      data[row + 1][col - 1] === M &&
-      data[row - 1][col + 1] === S &&
-      data[row + 1][col + 1] === S
-    return matched;
-  }
-
-  checkLeftLength(i: number) {
-    return i >= 1;
-  }
-
-  checkRightLength(width: number, i: number) {
-    return i + 1 < width;
-  }
-
-  checkTopLength(i: number) {
-    return i >= 1;
-  }
-
-  checkBottomLength(height: number, i: number) {
-    return i + 1 < height;
+  storeRules(arr: any[]): Map<any, any[]> {
+    const map = new Map();
+    arr.forEach((item) => {
+      const [num1, num2] = item.split('|');
+      const values = map.get(num1);
+      values?.length ? map.set(num1, [...values, num2]) : map.set(num1, [num2]);
+    });
+    return map;
   }
 
   parseRow(data: any): any[] {
