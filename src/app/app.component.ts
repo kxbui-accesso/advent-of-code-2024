@@ -29,7 +29,12 @@ export class AppComponent {
     for (let row = 0; row < map.length; row++) {
       for (let col = 0; col < map[row].length; col++) {
         if (this.isAntenna(map[row][col])) {
-          const antennas = this.findOtherAntennasAbove(map, row, col, map[row][col]);
+          const antennas = this.findOtherAntennasAbove(
+            map,
+            row,
+            col,
+            map[row][col]
+          );
           if (antennas.length > 0) {
             this.getAntinodes(map, { row, col }, antennas).forEach(
               (antinode) => {
@@ -57,29 +62,41 @@ export class AppComponent {
     currAnt: { row: number; col: number },
     antennas: { row: number; col: number }[]
   ): any[] {
-    const antinodes: any[] = [];
+    let antinodes: any[] = [];
 
     for (let i = 0; i < antennas.length; i++) {
-      const antn1 = this.calcAntinodeLoc(currAnt, antennas[i]);
-      this.isValidLoc(map, antn1.row, antn1.col) && antinodes.push(antn1);
-
-      const antn2 = this.calcAntinodeLoc(antennas[i], currAnt);
-      this.isValidLoc(map, antn2.row, antn2.col) && antinodes.push(antn2);
+      antinodes = [...antinodes, ...this.calcAntinodeLoc(map, currAnt, antennas[i])]
+      antinodes = [...antinodes, ...this.calcAntinodeLoc(map, antennas[i], currAnt, )]
+      antinodes.push(antennas[i]);
     }
+
+    antinodes.push(currAnt);
     return antinodes;
   }
 
   calcAntinodeLoc(
+    map: any[][],
     ant1: { row: number; col: number },
     ant2: { row: number; col: number }
-  ): { row: number; col: number } {
+  ): { row: number; col: number }[] {
     const rowDiff = Math.abs(ant1.row - ant2.row);
     const colDiff = Math.abs(ant1.col - ant2.col);
 
-    return {
+    const result = [];
+    let currAnt = {
       row: ant1.row < ant2.row ? ant1.row - rowDiff : ant1.row + rowDiff,
       col: ant1.col < ant2.col ? ant1.col - colDiff : ant1.col + colDiff,
-    };
+    }
+
+    // form a line across the map
+    while (this.isValidLoc(map, currAnt.row, currAnt.col)) {
+      result.push(currAnt);
+      currAnt = {
+        row: ant1.row < ant2.row ? currAnt.row - rowDiff : currAnt.row + rowDiff,
+        col: ant1.col < ant2.col ? currAnt.col - colDiff : currAnt.col + colDiff,
+      }
+    }
+    return result;
   }
 
   isValidLoc(map: any[], row: number, col: number): boolean {
