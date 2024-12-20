@@ -9,81 +9,106 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `190: 10 19
-3267: 81 40 27
-83: 17 5
-156: 15 6
-7290: 6 8 6 15
-161011: 16 10 13
-192: 17 8 14
-21037: 9 7 18 13
-292: 11 6 16 20`;
+  input = `............
+........0...
+.....0......
+.......0....
+....0.......
+......A.....
+............
+............
+........A...
+.........A..
+............
+............`;
   result = signal('');
 
   onSubmit() {
-    const rows = this.parseRow(this.input);
-    let total = 0;
-    for (let row = 0; row < rows.length; row++) {
-      const [result, nums] = rows[row].split(': ');
-      const numbers = nums
-        .trim()
-        .split(/\s*[\s,]\s*/)
-        .map((item: string) => +item);
-      if (this.calculate(numbers, +result)) {
-        console.log(rows[row]);
-        total += +result;
+    const map = this.parseRow(this.input).map((row) => row.split(''));
+    let locations = new Set();
+    for (let row = 0; row < map.length; row++) {
+      for (let col = 0; col < map[row].length; col++) {
+        if (this.isAntenna(map[row][col])) {
+          const antennas = this.findOtherAntennasAbove(map, row, col, map[row][col]);
+          if (antennas.length > 0) {
+            this.getAntinodes(map, { row, col }, antennas).forEach(
+              (antinode) => {
+                if (
+                  !locations.has(this.formatLoc(antinode.row, antinode.col))
+                ) {
+                  locations.add(this.formatLoc(antinode.row, antinode.col));
+                }
+              }
+            );
+          }
+        }
       }
     }
 
-    this.result.set(`${total}`);
+    this.result.set(`${locations.size}`);
   }
 
-  calculate(arr: number[], result: number): boolean {
-    if (arr.length === 2) {
-      if (result === this.add(arr[0], arr[1])) return true;
-      if (result === this.mul(arr[0], arr[1])) return true;
-      if (result === this.concat(arr[0], arr[1])) return true;
-      return false;
+  formatLoc(row: number, col: number): string {
+    return `${row}-${col}`;
+  }
+
+  getAntinodes(
+    map: any[][],
+    currAnt: { row: number; col: number },
+    antennas: { row: number; col: number }[]
+  ): any[] {
+    const antinodes: any[] = [];
+
+    for (let i = 0; i < antennas.length; i++) {
+      const antn1 = this.calcAntinodeLoc(currAnt, antennas[i]);
+      this.isValidLoc(map, antn1.row, antn1.col) && antinodes.push(antn1);
+
+      const antn2 = this.calcAntinodeLoc(antennas[i], currAnt);
+      this.isValidLoc(map, antn2.row, antn2.col) && antinodes.push(antn2);
     }
-    // remove last item
-    const remainArr = arr.slice(0, -1);
-    const lastItem = arr.slice(-1)[0];
-
-    if (this.calculate(remainArr, result - lastItem)) return true;
-    if (result % lastItem === 0 && this.calculate(remainArr, result / lastItem))
-      return true;
-    if (
-      this.isUnconcatable(result, lastItem) &&
-      this.calculate(remainArr, this.unconcat(result, lastItem))
-    )
-      return true;
-    return false;
+    return antinodes;
   }
 
-  add(num1: number, num2: number): number {
-    return num1 + num2;
+  calcAntinodeLoc(
+    ant1: { row: number; col: number },
+    ant2: { row: number; col: number }
+  ): { row: number; col: number } {
+    const rowDiff = Math.abs(ant1.row - ant2.row);
+    const colDiff = Math.abs(ant1.col - ant2.col);
+
+    return {
+      row: ant1.row < ant2.row ? ant1.row - rowDiff : ant1.row + rowDiff,
+      col: ant1.col < ant2.col ? ant1.col - colDiff : ant1.col + colDiff,
+    };
   }
 
-  mul(num1: number, num2: number): number {
-    return num1 * num2;
+  isValidLoc(map: any[], row: number, col: number): boolean {
+    const width = map[0].length;
+    const height = map.length;
+
+    return row >= 0 && row < height && col >= 0 && col < width;
   }
 
-  concat(num1: number, num2: number): number {
-    return +`${num1}${num2}`;
-  }
-
-  isUnconcatable(result: number, num: number): boolean {
-    return `${result}`.endsWith(`${num}`);
-  }
-
-  unconcat(total: number, num: number): number {
-    let digit = num;
-    let result = total;
-    while (digit > 0) {
-      result = Math.floor(result / 10);
-      digit = Math.floor(digit / 10);
+  findOtherAntennasAbove(
+    map: any[][],
+    row: number,
+    col: number,
+    antenna: string
+  ): { row: number; col: number }[] {
+    const antennas = [];
+    for (let i = 0; i < row; i++) {
+      for (let j = 0; j < map[i].length; j++) {
+        if (i === row && j === col) break;
+        if (map[i][j] === antenna && i !== row && j !== col) {
+          antennas.push({ row: i, col: j });
+        }
+      }
     }
-    return result;
+    return antennas;
+  }
+
+  isAntenna(char: string) {
+    return char.match(/^[0-9a-zA-Z]+$/);
   }
 
   parseRow(data: any): any[] {
