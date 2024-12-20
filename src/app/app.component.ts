@@ -30,6 +30,7 @@ export class AppComponent {
         .split(/\s*[\s,]\s*/)
         .map((item: string) => +item);
       if (this.calculate(numbers, +result)) {
+        console.log(rows[row]);
         total += +result;
       }
     }
@@ -41,11 +42,20 @@ export class AppComponent {
     if (arr.length === 2) {
       if (result === this.add(arr[0], arr[1])) return true;
       if (result === this.mul(arr[0], arr[1])) return true;
+      if (result === this.concat(arr[0], arr[1])) return true;
       return false;
     }
-    if (this.calculate(arr.slice(0, -1), result - arr.slice(-1)[0]))
+    // remove last item
+    const remainArr = arr.slice(0, -1);
+    const lastItem = arr.slice(-1)[0];
+
+    if (this.calculate(remainArr, result - lastItem)) return true;
+    if (result % lastItem === 0 && this.calculate(remainArr, result / lastItem))
       return true;
-    if (this.calculate(arr.slice(0, -1), result / arr.slice(-1)[0]))
+    if (
+      this.isUnconcatable(result, lastItem) &&
+      this.calculate(remainArr, this.unconcat(result, lastItem))
+    )
       return true;
     return false;
   }
@@ -56,6 +66,24 @@ export class AppComponent {
 
   mul(num1: number, num2: number): number {
     return num1 * num2;
+  }
+
+  concat(num1: number, num2: number): number {
+    return +`${num1}${num2}`;
+  }
+
+  isUnconcatable(result: number, num: number): boolean {
+    return `${result}`.endsWith(`${num}`);
+  }
+
+  unconcat(total: number, num: number): number {
+    let digit = num;
+    let result = total;
+    while (digit > 0) {
+      result = Math.floor(result / 10);
+      digit = Math.floor(digit / 10);
+    }
+    return result;
   }
 
   parseRow(data: any): any[] {
