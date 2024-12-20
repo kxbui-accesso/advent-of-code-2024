@@ -1,6 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+const EMPTY = '.';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -9,123 +11,78 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `............
-........0...
-.....0......
-.......0....
-....0.......
-......A.....
-............
-............
-........A...
-.........A..
-............
-............`;
+  // input = `1010101010101010101010`;
+  // input = `111111111111111111111`;
+  // input = `10101010101010101010101`;
+  input = `2333133121414131402`;
   result = signal('');
 
   onSubmit() {
-    const map = this.parseRow(this.input).map((row) => row.split(''));
-    let locations = new Set();
-    for (let row = 0; row < map.length; row++) {
-      for (let col = 0; col < map[row].length; col++) {
-        if (this.isAntenna(map[row][col])) {
-          const antennas = this.findOtherAntennasAbove(
-            map,
-            row,
-            col,
-            map[row][col]
-          );
-          if (antennas.length > 0) {
-            this.getAntinodes(map, { row, col }, antennas).forEach(
-              (antinode) => {
-                if (
-                  !locations.has(this.formatLoc(antinode.row, antinode.col))
-                ) {
-                  locations.add(this.formatLoc(antinode.row, antinode.col));
-                }
-              }
-            );
-          }
+    const data = this.input;
+    let total = 0;
+
+    const block = this.moveBlocks(this.buildBlock(data));
+    total = this.calcCheckSum(block);
+
+    this.result.set(`${total}`);
+  }
+
+  calcCheckSum(data: string[]): number {
+    let total = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] !== EMPTY) total += +data[i] * i;
+    }
+    return total;
+  }
+
+  moveBlocks(data: string[]): string[] {
+    const blocks = [];
+    let currIdx = 0,
+      lastIdx = data.length - 1;
+    while (currIdx < lastIdx) {
+      if (data[currIdx] !== EMPTY) {
+        blocks.push(data[currIdx]);
+      } else {
+        const block = this.findLastBlock(data, currIdx + 1, lastIdx);
+        if (block) {
+          blocks.push(block.value);
+          data[block.idx] = EMPTY;
+          lastIdx = block.idx;
         }
       }
+      currIdx++;
     }
-
-    this.result.set(`${locations.size}`);
+    // console.log(blocks.join(''));
+    return blocks;
   }
 
-  formatLoc(row: number, col: number): string {
-    return `${row}-${col}`;
+  findLastBlock(
+    data: string[],
+    startIdx: number,
+    stopIdx: number
+  ): { idx: number; value: string } | null {
+    for (let i = stopIdx; i > startIdx; i--) {
+      if (data[i] !== EMPTY) {
+        return { idx: i, value: data[i] };
+      }
+    }
+    return null;
   }
 
-  getAntinodes(
-    map: any[][],
-    currAnt: { row: number; col: number },
-    antennas: { row: number; col: number }[]
-  ): any[] {
-    let antinodes: any[] = [];
-
-    for (let i = 0; i < antennas.length; i++) {
-      antinodes = [...antinodes, ...this.calcAntinodeLoc(map, currAnt, antennas[i])]
-      antinodes = [...antinodes, ...this.calcAntinodeLoc(map, antennas[i], currAnt, )]
-      antinodes.push(antennas[i]);
-    }
-
-    antinodes.push(currAnt);
-    return antinodes;
-  }
-
-  calcAntinodeLoc(
-    map: any[][],
-    ant1: { row: number; col: number },
-    ant2: { row: number; col: number }
-  ): { row: number; col: number }[] {
-    const rowDiff = Math.abs(ant1.row - ant2.row);
-    const colDiff = Math.abs(ant1.col - ant2.col);
-
-    const result = [];
-    let currAnt = {
-      row: ant1.row < ant2.row ? ant1.row - rowDiff : ant1.row + rowDiff,
-      col: ant1.col < ant2.col ? ant1.col - colDiff : ant1.col + colDiff,
-    }
-
-    // form a line across the map
-    while (this.isValidLoc(map, currAnt.row, currAnt.col)) {
-      result.push(currAnt);
-      currAnt = {
-        row: ant1.row < ant2.row ? currAnt.row - rowDiff : currAnt.row + rowDiff,
-        col: ant1.col < ant2.col ? currAnt.col - colDiff : currAnt.col + colDiff,
+  buildBlock(data: string): string[] {
+    let result = [];
+    let count = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (i % 2 === 0) {
+        const ids = new String(`${count},`).repeat(+data[i]);
+        ids && result.push(...ids.split(',').filter(Boolean));
+        count++;
+      } else {
+        const empties = EMPTY.repeat(+data[i]);
+        result.push(...empties.split(''));
       }
     }
     return result;
-  }
-
-  isValidLoc(map: any[], row: number, col: number): boolean {
-    const width = map[0].length;
-    const height = map.length;
-
-    return row >= 0 && row < height && col >= 0 && col < width;
-  }
-
-  findOtherAntennasAbove(
-    map: any[][],
-    row: number,
-    col: number,
-    antenna: string
-  ): { row: number; col: number }[] {
-    const antennas = [];
-    for (let i = 0; i < row; i++) {
-      for (let j = 0; j < map[i].length; j++) {
-        if (i === row && j === col) break;
-        if (map[i][j] === antenna && i !== row && j !== col) {
-          antennas.push({ row: i, col: j });
-        }
-      }
-    }
-    return antennas;
-  }
-
-  isAntenna(char: string) {
-    return char.match(/^[0-9a-zA-Z]+$/);
   }
 
   parseRow(data: any): any[] {
