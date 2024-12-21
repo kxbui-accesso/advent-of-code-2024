@@ -1,7 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const EMPTY = '.';
+const TRAIL_HEAD = 0;
+const TRAIL_END = 9;
 
 @Component({
   selector: 'app-root',
@@ -11,102 +12,108 @@ const EMPTY = '.';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  // input = `1010101010101010101010`;
-  // input = `111111111111111111111`;
-  // input = `10101010101010101010101`;
-  // input = `2833133121414131402`;
-  input = `2333133121414131402`;
+  input = `89010123
+78121874
+87430965
+96549874
+45678903
+32019012
+01329801
+10456732`;
   result = signal('');
+  trailEnds = new Set();
 
   onSubmit() {
-    const data = this.input;
+    const data = this.parseRow(this.input).map((row) => row.split(''));
     let total = 0;
 
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const block = this.moveBlocks(this.buildBlock(data));
-      total = this.calcCheckSum(block);
-  
+      total = this.start(data);
       this.result.set(`${total}`);
-    }, 0)
+    }, 0);
   }
 
-  calcCheckSum(data: string[]): number {
+  start(map: any[][]): number {
+    const trailHeads = this.findTrailHeads(map);
     let total = 0;
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] !== EMPTY) total += +data[i] * i;
-    }
+    trailHeads.forEach((trailHead) => {
+      this.trailEnds.clear();
+      this.findPath(map, trailHead, 0);
+      total += this.trailEnds.size;
+    });
     return total;
   }
 
-  moveBlocks(data: string[]): string[] {
-    let currIdx = data.length - 1;
-    while (currIdx >= 0) {
-      if (data[currIdx] !== EMPTY) {
-        const file = this.findLastFile(data, currIdx);
-        if (file) {
-          const freeSpaceIdx = this.findFreeSpaces(data, file.idx, file.count);
-          if (freeSpaceIdx) {
-            for (let i = freeSpaceIdx; i < freeSpaceIdx + file.count; i++) {
-              data[i] = file.value;
-            }
+  findPath(
+    map: any[][],
+    curr: { row: number; col: number },
+    currHeight: number
+  ): number {
+    if (currHeight === TRAIL_END) {
+      this.trailEnds.add(this.formatLoc(curr));
+      return 1;
+    }
+    const nextPositions = this.findNextPosition(map, curr, currHeight);
+    if (!nextPositions.length && currHeight !== TRAIL_END) {
+      return 0;
+    }
+    let total = 0;
+    nextPositions.forEach((nextPosition) => {
+      total += this.findPath(map, nextPosition, currHeight + 1);
+    });
+    return total;
+  }
 
-            for (let i = file.idx; i < file.idx + file.count; i++) {
-              data[i] = EMPTY;
-            }
-          }
-          currIdx = file.idx;
+  formatLoc(currPos: { row: number; col: number }) {
+    return `${currPos.row}-${currPos.col}`;
+  }
+
+  findNextPosition(
+    map: any[][],
+    curr: { row: number; col: number },
+    currHeight: number
+  ): { row: number; col: number }[] {
+    const arr: any[] = [];
+    const width = map[0].length;
+    const height = map.length;
+
+    // left
+    if (curr.col - 1 >= 0 && +map[curr.row][curr.col - 1] === currHeight + 1) {
+      arr.push({ row: curr.row, col: curr.col - 1 });
+    }
+    // right
+    if (
+      curr.col + 1 < width &&
+      +map[curr.row][curr.col + 1] === currHeight + 1
+    ) {
+      arr.push({ row: curr.row, col: curr.col + 1 });
+    }
+    // top
+    if (curr.row - 1 >= 0 && +map[curr.row - 1][curr.col] === currHeight + 1) {
+      arr.push({ row: curr.row - 1, col: curr.col });
+    }
+    // bottom
+    if (
+      curr.row + 1 < height &&
+      +map[curr.row + 1][curr.col] === currHeight + 1
+    ) {
+      arr.push({ row: curr.row + 1, col: curr.col });
+    }
+    return arr;
+  }
+
+  findTrailHeads(map: any[][]): any[] {
+    const trailHeads = [];
+    for (let row = 0; row < map.length; row++) {
+      for (let col = 0; col < map[row].length; col++) {
+        if (+map[row][col] === TRAIL_HEAD) {
+          trailHeads.push({ row, col });
         }
       }
-      currIdx--;
     }
-    console.log(data.join(''));
-    return data;
-  }
-
-  findFreeSpaces(data: string[], endIdx: number, length: number): number | null {
-    let count = -1, i = 0;
-    for (i; i < endIdx; i++) {
-      if (count >= length) return i - count;
-      if (data[i] !== EMPTY) count = 0;
-      else count++;
-    }
-    return count >= length ? i - count: null;
-  }
-
-  findLastFile(
-    data: string[],
-    startIdx: number
-  ): { idx: number; value: string; count: number } | null {
-    let foundId = '';
-    let count = 0;
-    for (let i = startIdx; i >= 0; i--) {
-      if (foundId && data[i] !== foundId) {
-        return { idx: i + 1, value: foundId, count };
-      }
-      if (data[i] !== EMPTY) {
-        foundId = data[i];
-        count++;
-      }
-    }
-    return null;
-  }
-
-  buildBlock(data: string): string[] {
-    let result = [];
-    let count = 0;
-    for (let i = 0; i < data.length; i++) {
-      if (i % 2 === 0) {
-        const ids = new String(`${count},`).repeat(+data[i]);
-        ids && result.push(...ids.split(',').filter(Boolean));
-        count++;
-      } else {
-        const empties = EMPTY.repeat(+data[i]);
-        result.push(...empties.split(''));
-      }
-    }
-    return result;
+    return trailHeads;
   }
 
   parseRow(data: any): any[] {
