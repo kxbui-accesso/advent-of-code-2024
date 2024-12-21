@@ -14,6 +14,7 @@ export class AppComponent {
   // input = `1010101010101010101010`;
   // input = `111111111111111111111`;
   // input = `10101010101010101010101`;
+  // input = `2833133121414131402`;
   input = `2333133121414131402`;
   result = signal('');
 
@@ -21,10 +22,14 @@ export class AppComponent {
     const data = this.input;
     let total = 0;
 
-    const block = this.moveBlocks(this.buildBlock(data));
-    total = this.calcCheckSum(block);
+    this.result.set(`...waiting`);
 
-    this.result.set(`${total}`);
+    setTimeout(() => {
+      const block = this.moveBlocks(this.buildBlock(data));
+      total = this.calcCheckSum(block);
+  
+      this.result.set(`${total}`);
+    }, 0)
   }
 
   calcCheckSum(data: string[]): number {
@@ -36,34 +41,53 @@ export class AppComponent {
   }
 
   moveBlocks(data: string[]): string[] {
-    const blocks = [];
-    let currIdx = 0,
-      lastIdx = data.length - 1;
-    while (currIdx < lastIdx) {
+    let currIdx = data.length - 1;
+    while (currIdx >= 0) {
       if (data[currIdx] !== EMPTY) {
-        blocks.push(data[currIdx]);
-      } else {
-        const block = this.findLastBlock(data, currIdx + 1, lastIdx);
-        if (block) {
-          blocks.push(block.value);
-          data[block.idx] = EMPTY;
-          lastIdx = block.idx;
+        const file = this.findLastFile(data, currIdx);
+        if (file) {
+          const freeSpaceIdx = this.findFreeSpaces(data, file.idx, file.count);
+          if (freeSpaceIdx) {
+            for (let i = freeSpaceIdx; i < freeSpaceIdx + file.count; i++) {
+              data[i] = file.value;
+            }
+
+            for (let i = file.idx; i < file.idx + file.count; i++) {
+              data[i] = EMPTY;
+            }
+          }
+          currIdx = file.idx;
         }
       }
-      currIdx++;
+      currIdx--;
     }
-    // console.log(blocks.join(''));
-    return blocks;
+    console.log(data.join(''));
+    return data;
   }
 
-  findLastBlock(
+  findFreeSpaces(data: string[], endIdx: number, length: number): number | null {
+    let count = -1, i = 0;
+    for (i; i < endIdx; i++) {
+      if (count >= length) return i - count;
+      if (data[i] !== EMPTY) count = 0;
+      else count++;
+    }
+    return count >= length ? i - count: null;
+  }
+
+  findLastFile(
     data: string[],
-    startIdx: number,
-    stopIdx: number
-  ): { idx: number; value: string } | null {
-    for (let i = stopIdx; i > startIdx; i--) {
+    startIdx: number
+  ): { idx: number; value: string; count: number } | null {
+    let foundId = '';
+    let count = 0;
+    for (let i = startIdx; i >= 0; i--) {
+      if (foundId && data[i] !== foundId) {
+        return { idx: i + 1, value: foundId, count };
+      }
       if (data[i] !== EMPTY) {
-        return { idx: i, value: data[i] };
+        foundId = data[i];
+        count++;
       }
     }
     return null;
