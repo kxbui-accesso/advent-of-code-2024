@@ -21,7 +21,6 @@ export class AppComponent {
 01329801
 10456732`;
   result = signal('');
-  trailEnds = new Set();
 
   onSubmit() {
     const data = this.parseRow(this.input).map((row) => row.split(''));
@@ -39,9 +38,7 @@ export class AppComponent {
     const trailHeads = this.findTrailHeads(map);
     let total = 0;
     trailHeads.forEach((trailHead) => {
-      this.trailEnds.clear();
-      this.findPath(map, trailHead, 0);
-      total += this.trailEnds.size;
+      total += this.findPath(map, trailHead, 0);
     });
     return total;
   }
@@ -52,7 +49,6 @@ export class AppComponent {
     currHeight: number
   ): number {
     if (currHeight === TRAIL_END) {
-      this.trailEnds.add(this.formatLoc(curr));
       return 1;
     }
     const nextPositions = this.findNextPosition(map, curr, currHeight);
