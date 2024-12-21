@@ -1,8 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const TRAIL_HEAD = 0;
-const TRAIL_END = 9;
+const BLINKING_TIMES = 25;
+const MULTIPLIER = 2024;
 
 @Component({
   selector: 'app-root',
@@ -12,18 +12,15 @@ const TRAIL_END = 9;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `89010123
-78121874
-87430965
-96549874
-45678903
-32019012
-01329801
-10456732`;
+  // input = `0 1 10 99 999`;
+  input = `125 17`;
   result = signal('');
 
   onSubmit() {
-    const data = this.parseRow(this.input).map((row) => row.split(''));
+    const data = this.input
+      .trim()
+      .split(/\s*[\s,]\s*/)
+      .map(Number);
     let total = 0;
 
     this.result.set(`...waiting`);
@@ -34,82 +31,45 @@ export class AppComponent {
     }, 0);
   }
 
-  start(map: any[][]): number {
-    const trailHeads = this.findTrailHeads(map);
-    let total = 0;
-    trailHeads.forEach((trailHead) => {
-      total += this.findPath(map, trailHead, 0);
-    });
-    return total;
-  }
+  start(data: any[]): number {
+    let arr = data;
 
-  findPath(
-    map: any[][],
-    curr: { row: number; col: number },
-    currHeight: number
-  ): number {
-    if (currHeight === TRAIL_END) {
-      return 1;
-    }
-    const nextPositions = this.findNextPosition(map, curr, currHeight);
-    if (!nextPositions.length && currHeight !== TRAIL_END) {
-      return 0;
-    }
-    let total = 0;
-    nextPositions.forEach((nextPosition) => {
-      total += this.findPath(map, nextPosition, currHeight + 1);
-    });
-    return total;
-  }
-
-  formatLoc(currPos: { row: number; col: number }) {
-    return `${currPos.row}-${currPos.col}`;
-  }
-
-  findNextPosition(
-    map: any[][],
-    curr: { row: number; col: number },
-    currHeight: number
-  ): { row: number; col: number }[] {
-    const arr: any[] = [];
-    const width = map[0].length;
-    const height = map.length;
-
-    // left
-    if (curr.col - 1 >= 0 && +map[curr.row][curr.col - 1] === currHeight + 1) {
-      arr.push({ row: curr.row, col: curr.col - 1 });
-    }
-    // right
-    if (
-      curr.col + 1 < width &&
-      +map[curr.row][curr.col + 1] === currHeight + 1
-    ) {
-      arr.push({ row: curr.row, col: curr.col + 1 });
-    }
-    // top
-    if (curr.row - 1 >= 0 && +map[curr.row - 1][curr.col] === currHeight + 1) {
-      arr.push({ row: curr.row - 1, col: curr.col });
-    }
-    // bottom
-    if (
-      curr.row + 1 < height &&
-      +map[curr.row + 1][curr.col] === currHeight + 1
-    ) {
-      arr.push({ row: curr.row + 1, col: curr.col });
-    }
-    return arr;
-  }
-
-  findTrailHeads(map: any[][]): any[] {
-    const trailHeads = [];
-    for (let row = 0; row < map.length; row++) {
-      for (let col = 0; col < map[row].length; col++) {
-        if (+map[row][col] === TRAIL_HEAD) {
-          trailHeads.push({ row, col });
+    for (let j = 0; j < BLINKING_TIMES; j++) {
+      const tempArr = [];
+      for (let i = 0; i < arr.length; i++) {
+        const result = this.transformNumber(arr[i]);
+        if (Array.isArray(result)) {
+          tempArr.push(...result);
+        } else {
+          tempArr.push(result);
         }
       }
+      arr = tempArr;
     }
-    return trailHeads;
+
+    return arr.length;
+  }
+
+  transformNumber(number: number): number | number[] {
+    if (number === 0) {
+      return 1;
+    }
+    if (this.isEvenDigit(number)) {
+      return this.splitNumber(number);
+    }
+    return number * MULTIPLIER;
+  }
+
+  splitNumber(number: number): number | number[] {
+    const arr = `${number}`.split('');
+    const half = Math.floor(arr.length / 2);
+    const firstHalf = arr.slice(0, half).join('');
+    const secondHalf = arr.slice(half).join('');
+    return [+firstHalf, +secondHalf];
+  }
+
+  isEvenDigit(number: number): boolean {
+    return `${number}`.length % 2 === 0;
   }
 
   parseRow(data: any): any[] {
