@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const BLINKING_TIMES = 25;
+const BLINKING_TIMES = 75;
 const MULTIPLIER = 2024;
 
 @Component({
@@ -33,21 +33,38 @@ export class AppComponent {
 
   start(data: any[]): number {
     let arr = data;
+    let map = new Map<number, number>();
 
     for (let j = 0; j < BLINKING_TIMES; j++) {
-      const tempArr = [];
+      const tempMap =  new Map<number, number>();
       for (let i = 0; i < arr.length; i++) {
         const result = this.transformNumber(arr[i]);
+        const count = map.get(arr[i]) || 1;
         if (Array.isArray(result)) {
-          tempArr.push(...result);
+          result.forEach((element) => {
+            this.addToMap(tempMap, element, count);
+          })
         } else {
-          tempArr.push(result);
+          this.addToMap(tempMap, result, count);
         }
       }
-      arr = tempArr;
+      arr = Array.from(tempMap.keys());
+      map = new Map(tempMap);
     }
 
-    return arr.length;
+    return this.getMapTotal(map);
+  }
+
+  addToMap(map: Map<any, any>, key: any, value: any) {
+    if (map.has(key)) {
+      map.set(key, map.get(key) + value);
+    } else {
+      map.set(key, value);
+    }
+  }
+
+  getMapTotal(map: Map<any, any>): number {
+    return Array.from(map.values()).reduce((acc, val) => acc + val, 0);
   }
 
   transformNumber(number: number): number | number[] {
