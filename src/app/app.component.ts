@@ -1,13 +1,15 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const UP = 0;
-const DOWN = 1;
-const LEFT = 2;
-const RIGHT = 3;
+const BTN_A_COST = 3;
+const BTN_B_COST = 1;
 
 /**
- * Use Depth First Search
+ * System of two equations with two variables:
+ * a1x + b1y = c1
+ * a2x + b2y = c2
+ *
+ * Use Cramer's rule
  */
 @Component({
   selector: 'app-root',
@@ -17,214 +19,103 @@ const RIGHT = 3;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-//   input = `AAAA
-// BBCD
-// BBCC
-// EEEC`;
-    input = `RRRRIICCFF
-RRRRIICCCF
-VVRRRCCFFF
-VVRCCCJFFF
-VVVVCJJCFE
-VVIVCCJJEE
-VVIIICJJEE
-MIIIIIJJEE
-MIIISIJEEE
-MMMISSJEEE`;
+  input = `Button A: X+94, Y+34
+Button B: X+22, Y+67
+Prize: X=8400, Y=5400
+
+Button A: X+26, Y+66
+Button B: X+67, Y+21
+Prize: X=12748, Y=12176
+
+Button A: X+17, Y+86
+Button B: X+84, Y+37
+Prize: X=7870, Y=6450
+
+Button A: X+69, Y+23
+Button B: X+27, Y+71
+Prize: X=18641, Y=10279`;
+
   result = signal('');
-  visitedMap = new Set();
 
   onSubmit() {
-    const map = this.parseRow(this.input).map((element) => element.split(''));
-    let total = 0;
-
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      this.visitedMap.clear();
-      const total = this.start(map);
+      const input = this.parseInput(this.input);
+      const total = this.start(input);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(map: any[][]): number {
+  start(data: any[]): number {
     let total = 0;
-    for (let row = 0; row < map.length; row++) {
-      for (let col = 0; col < map[row].length; col++) {
-        if (!this.hasVisited({ row, col })) {
-          const region: any[] = [];
-          const { area } = this.searchArea(
-            map,
-            { row, col },
-            map[row][col],
-            region
-          );
-          total += area * this.countCorners(region);
-        }
-      }
-    }
+
+    data.forEach((item) => {
+      const result = this.calculateCramersRule(item);
+      total += result ? this.getCost(result) : 0;
+    });
+
     return total;
   }
 
-  countCorners(region: any[]): number {
-    let count = 0;
-
-    const arr = region
-      .slice()
-      .sort((a, b) => (a.row === a.row ? a.col - b.col : a.row - b.row));
-    const locSet = new Set(arr.map((item) => this.formatLoc(item)));
-
-    arr.forEach((item) => {
-      const { row, col } = item;
-
-      // top-left
-      if (
-        !locSet.has(this.formatLoc({ row, col: col - 1 })) &&
-        !locSet.has(this.formatLoc({ row: row - 1, col }))
-      )
-        count++;
-
-      // top-left-diagonal
-      if (
-        locSet.has(this.formatLoc({ row, col: col - 1 })) &&
-        locSet.has(this.formatLoc({ row: row - 1, col })) &&
-        !locSet.has(this.formatLoc({ row: row - 1, col: col - 1 }))
-      )
-        count++;
-
-      // top-right
-      if (
-        !locSet.has(this.formatLoc({ row, col: col + 1 })) &&
-        !locSet.has(this.formatLoc({ row: row - 1, col }))
-      )
-        count++;
-
-      // top-right-diagonal
-      if (
-        locSet.has(this.formatLoc({ row, col: col + 1 })) &&
-        locSet.has(this.formatLoc({ row: row - 1, col })) &&
-        !locSet.has(this.formatLoc({ row: row - 1, col: col + 1 }))
-      )
-        count++;
-
-      // bottom-left
-      if (
-        !locSet.has(this.formatLoc({ row, col: col - 1 })) &&
-        !locSet.has(this.formatLoc({ row: row + 1, col }))
-      )
-        count++;
-
-      // bottom-left-diagonal
-      if (
-        locSet.has(this.formatLoc({ row, col: col - 1 })) &&
-        locSet.has(this.formatLoc({ row: row + 1, col })) &&
-        !locSet.has(this.formatLoc({ row: row + 1, col: col - 1 }))
-      )
-        count++;
-
-      // bottom-right
-      if (
-        !locSet.has(this.formatLoc({ row, col: col + 1 })) &&
-        !locSet.has(this.formatLoc({ row: row + 1, col }))
-      )
-        count++;
-
-      // bottom-right-diagonal
-      if (
-        locSet.has(this.formatLoc({ row, col: col + 1 })) &&
-        locSet.has(this.formatLoc({ row: row + 1, col })) &&
-        !locSet.has(this.formatLoc({ row: row + 1, col: col + 1 }))
-      )
-        count++;
-    });
-    return count;
+  getCost(params: { x: number; y: number }): number {
+    return params.x * BTN_A_COST + params.y * BTN_B_COST;
   }
 
-  searchArea(
-    map: any[][],
-    curr: { row: number; col: number; dir?: number },
-    type: string,
-    region: any[]
-  ): { area: number } {
-    let totalArea = 0;
-    const nextMoves = this.getNextMoves(map, curr, type);
-    if (nextMoves?.length) {
-      this.visitedMap.add(this.formatLoc(curr));
-      region.push(curr);
-      nextMoves.forEach((move) => {
-        if (!this.hasVisited(move)) {
-          const { area } = this.searchArea(map, move, type, region);
-          totalArea += area;
-        }
-      });
-      return {
-        area: 1 + totalArea,
-      };
+  calculateCramersRule(params: {
+    a1: number;
+    b1: number;
+    a2: number;
+    b2: number;
+    c1: number;
+    c2: number;
+  }): { x: number; y: number } | null {
+    const { a1, b1, a2, b2, c1, c2 } = params;
+    const determinant = a1 * b2 - a2 * b1;
+    if (determinant != 0) {
+      const x = (c1 * b2 - a2 * c2) / determinant;
+      const y = (a1 * c2 - b1 * c1) / determinant;
+      return Number.isInteger(x) && Number.isInteger(y) ? { x, y } : null;
     } else {
-      if (!this.hasVisited(curr)) {
-        this.visitedMap.add(this.formatLoc(curr));
-        region.push(curr);
-        return { area: 1 };
-      }
-      return { area: 0 };
+      // Cramer equations system: determinant is zero
+      // there are either no solutions or many solutions exist
+      return null;
     }
   }
 
-  getNextMoves(
-    map: any[][],
-    curr: { row: number; col: number },
-    type: string
-  ): any[] | null {
-    const arr = [];
-    const width = map[0].length;
-    const height = map.length;
-    let neighbor = null;
+  parseInput(str: string): any[] {
+    const arr: any[] = [];
+    const lines = this.parseRow(str);
 
-    // right
-    neighbor = { row: curr.row, col: curr.col + 1 };
-    if (
-      !this.hasVisited(neighbor) &&
-      neighbor.col < width &&
-      map[neighbor.row][neighbor.col] === type
-    ) {
-      arr.push({ ...neighbor, dir: RIGHT });
-    }
-    // up
-    neighbor = { row: curr.row - 1, col: curr.col };
-    if (
-      !this.hasVisited(neighbor) &&
-      neighbor.row >= 0 &&
-      map[neighbor.row][neighbor.col] === type
-    ) {
-      arr.push({ ...neighbor, dir: UP });
-    }
-    // down
-    neighbor = { row: curr.row + 1, col: curr.col };
-    if (
-      !this.hasVisited(neighbor) &&
-      neighbor.row < height &&
-      map[neighbor.row][neighbor.col] === type
-    ) {
-      arr.push({ ...neighbor, col: curr.col, dir: DOWN });
-    }
-    // left
-    neighbor = { row: curr.row, col: curr.col - 1 };
-    if (
-      !this.hasVisited(neighbor) &&
-      neighbor.col >= 0 &&
-      map[neighbor.row][neighbor.col] === type
-    ) {
-      arr.push({ ...neighbor, dir: LEFT });
+    let count = 0;
+    while (count < lines.length) {
+      let item = {};
+
+      // parse btn A
+      const [_A, nums_A] = lines[count].split(':');
+      const [a1, b1] = nums_A.split(',');
+      item = { ...item, a1: this.extractNum(a1), b1: this.extractNum(b1) };
+      count++;
+
+      // parse btn B
+      const [_B, nums_B] = lines[count].split(':');
+      const [a2, b2] = nums_B.split(',');
+      item = { ...item, a2: this.extractNum(a2), b2: this.extractNum(b2) };
+      count++;
+
+      // parse prize
+      const [_P, nums_P] = lines[count].split(':');
+      const [c1, c2] = nums_P.split(',');
+      item = { ...item, c1: this.extractNum(c1), c2: this.extractNum(c2) };
+
+      arr.push(item);
+      count += 2;
     }
     return arr;
   }
 
-  hasVisited(curr: { row: number; col: number }) {
-    return this.visitedMap.has(this.formatLoc(curr));
-  }
-
-  formatLoc(curr: { row: number; col: number }): string {
-    return `${curr.row}-${curr.col}`;
+  extractNum(str: string): number {
+    return +str.replace(/^\D+/g, '');
   }
 
   parseRow(data: any): any[] {
