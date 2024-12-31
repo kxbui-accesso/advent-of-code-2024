@@ -106,12 +106,20 @@ Prize: X=18641, Y=10279`;
       // parse prize
       const [_P, nums_P] = lines[count].split(':');
       const [c1, c2] = nums_P.split(',');
-      item = { ...item, c1: this.extractNum(c1), c2: this.extractNum(c2) };
+      item = {
+        ...item,
+        c1: this.tranformPrize(this.extractNum(c1)),
+        c2: this.tranformPrize(this.extractNum(c2)),
+      };
 
       arr.push(item);
       count += 2;
     }
     return arr;
+  }
+
+  tranformPrize(num: number): number {
+    return 10000000000000 + num;
   }
 
   extractNum(str: string): number {
