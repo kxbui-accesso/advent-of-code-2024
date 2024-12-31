@@ -1,3 +1,4 @@
+import { NgFor, NgIf } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
@@ -5,12 +6,17 @@ import { FormsModule } from '@angular/forms';
 // const MAP_HEIGHT = 103;
 const MAP_WIDTH = 11;
 const MAP_HEIGHT = 7;
-const ITERATION = 100;
 
+/**
+ * Bots need to cluster together to form a tree.
+ * Use the safety factor from part 1 --
+ * since more falling outside any quadrant like on the center
+ * column will produce abnormally low safety factors.
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgFor, NgIf],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
@@ -29,28 +35,58 @@ p=2,4 v=2,-3
 p=9,5 v=-3,-3`;
 
   result = signal('');
+  count = signal(0);
+  array = signal<any[][]>([]);
+  safetyFactor = 0;
+  curr: any[] | null = null;
 
   onSubmit() {
-    this.result.set(`...waiting`);
-
     setTimeout(() => {
+      this.count.set(0);
+      this.array.set([]);
       const robots = this.parseInput(this.parseRow(this.input));
       const total = this.start(robots);
-      this.result.set(`${total}`);
     }, 0);
   }
 
-  start(data: any[]): number {
+  start(data: any[]) {
     let curr = [...data];
+    let currSafetyFactor = this.safetyFactor;
+    let count = this.count();
 
-    Array.from(Array(ITERATION).keys()).forEach((_) => {
+    if (!this.safetyFactor) {
+      this.safetyFactor = this.getTotalSafetyFactor(curr);
+      currSafetyFactor = this.safetyFactor;
+    }
+    while (currSafetyFactor >= this.safetyFactor) {
       curr.forEach((item, i) => {
         const { x, y } = this.move(item);
         curr[i].px = x;
         curr[i].py = y;
       });
-    });
-    return this.getTotalSafetyFactor(curr);
+      currSafetyFactor = this.getTotalSafetyFactor(curr);
+      count++;
+    }
+    this.curr = curr;
+    this.safetyFactor = currSafetyFactor;
+    this.count.set(count);
+    this.array.set(this.constructRobotPosition());
+  }
+
+  continue() {
+    if (this.curr) {
+      this.start(this.curr);
+    }
+  }
+
+  constructRobotPosition(): any[][] {
+    const arr = Array.from({ length: MAP_HEIGHT }, () =>
+      Array.from({ length: MAP_WIDTH }, () => ' ')
+    );
+
+    this.curr?.forEach((item) => (arr[item.py][item.px] = '*'));
+
+    return arr;
   }
 
   getTotalSafetyFactor(arr: any[]): number {
