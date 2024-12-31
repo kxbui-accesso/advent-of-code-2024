@@ -1,16 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const BTN_A_COST = 3;
-const BTN_B_COST = 1;
+// const MAP_WIDTH = 101;
+// const MAP_HEIGHT = 103;
+const MAP_WIDTH = 11;
+const MAP_HEIGHT = 7;
+const ITERATION = 100;
 
-/**
- * System of two equations with two variables:
- * a1x + b1y = c1
- * a2x + b2y = c2
- *
- * Use Cramer's rule
- */
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -19,21 +15,18 @@ const BTN_B_COST = 1;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `Button A: X+94, Y+34
-Button B: X+22, Y+67
-Prize: X=8400, Y=5400
-
-Button A: X+26, Y+66
-Button B: X+67, Y+21
-Prize: X=12748, Y=12176
-
-Button A: X+17, Y+86
-Button B: X+84, Y+37
-Prize: X=7870, Y=6450
-
-Button A: X+69, Y+23
-Button B: X+27, Y+71
-Prize: X=18641, Y=10279`;
+  input = `p=0,4 v=3,-3
+p=6,3 v=-1,-3
+p=10,3 v=-1,2
+p=2,0 v=2,-1
+p=0,0 v=1,3
+p=3,0 v=-2,-2
+p=7,6 v=-1,-3
+p=3,0 v=-1,-2
+p=9,3 v=2,3
+p=7,3 v=-1,2
+p=2,4 v=2,-3
+p=9,5 v=-3,-3`;
 
   result = signal('');
 
@@ -41,89 +34,106 @@ Prize: X=18641, Y=10279`;
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const input = this.parseInput(this.input);
-      const total = this.start(input);
+      const robots = this.parseInput(this.parseRow(this.input));
+      const total = this.start(robots);
       this.result.set(`${total}`);
     }, 0);
   }
 
   start(data: any[]): number {
-    let total = 0;
+    let curr = [...data];
 
-    data.forEach((item) => {
-      const result = this.calculateCramersRule(item);
-      total += result ? this.getCost(result) : 0;
+    Array.from(Array(ITERATION).keys()).forEach((_) => {
+      curr.forEach((item, i) => {
+        const { x, y } = this.move(item);
+        curr[i].px = x;
+        curr[i].py = y;
+      });
     });
-
-    return total;
+    return this.getTotalSafetyFactor(curr);
   }
 
-  getCost(params: { x: number; y: number }): number {
-    return params.x * BTN_A_COST + params.y * BTN_B_COST;
+  getTotalSafetyFactor(arr: any[]): number {
+    const map = new Map();
+    const midX = Math.round((MAP_WIDTH - 1) / 2);
+    const midY = Math.round((MAP_HEIGHT - 1) / 2);
+
+    arr.forEach((item) => {
+      if (item.px < midX && item.py < midY) {
+        this.addToMap(map, 'Q1');
+      } else if (item.px > midX && item.py < midY) {
+        this.addToMap(map, 'Q2');
+      } else if (item.px < midX && item.py > midY) {
+        this.addToMap(map, 'Q3');
+      } else if (item.px > midX && item.py > midY) {
+        this.addToMap(map, 'Q4');
+      }
+    });
+    return Array.from(map.values()).reduce((total, curr) => (total *= curr), 1);
   }
 
-  calculateCramersRule(params: {
-    a1: number;
-    b1: number;
-    a2: number;
-    b2: number;
-    c1: number;
-    c2: number;
-  }): { x: number; y: number } | null {
-    const { a1, b1, a2, b2, c1, c2 } = params;
-    const determinant = a1 * b2 - a2 * b1;
-    if (determinant != 0) {
-      const x = (c1 * b2 - a2 * c2) / determinant;
-      const y = (a1 * c2 - b1 * c1) / determinant;
-      return Number.isInteger(x) && Number.isInteger(y) ? { x, y } : null;
-    } else {
-      // Cramer equations system: determinant is zero
-      // there are either no solutions or many solutions exist
-      return null;
+  addToMap(map: Map<string, number>, key: string) {
+    map.has(key) ? map.set(key, 1 + map.get(key)!) : map.set(key, 1);
+  }
+
+  move(params: { px: number; py: number; vx: number; vy: number }): {
+    x: number;
+    y: number;
+  } {
+    let x = Number(params.px) + Number(params.vx);
+    let y = Number(params.py) + Number(params.vy);
+
+    if (x < 0) {
+      x = MAP_WIDTH - Math.abs(x);
     }
+
+    if (x >= MAP_WIDTH) {
+      x = x - MAP_WIDTH;
+    }
+
+    if (y < 0) {
+      y = MAP_HEIGHT - Math.abs(y);
+    }
+
+    if (y >= MAP_HEIGHT) {
+      y = y - MAP_HEIGHT;
+    }
+
+    return { x, y };
   }
 
-  parseInput(str: string): any[] {
+  parseInput(input: string[]): any[] {
     const arr: any[] = [];
-    const lines = this.parseRow(str);
 
-    let count = 0;
-    while (count < lines.length) {
-      let item = {};
-
-      // parse btn A
-      const [_A, nums_A] = lines[count].split(':');
-      const [a1, b1] = nums_A.split(',');
-      item = { ...item, a1: this.extractNum(a1), b1: this.extractNum(b1) };
-      count++;
-
-      // parse btn B
-      const [_B, nums_B] = lines[count].split(':');
-      const [a2, b2] = nums_B.split(',');
-      item = { ...item, a2: this.extractNum(a2), b2: this.extractNum(b2) };
-      count++;
-
-      // parse prize
-      const [_P, nums_P] = lines[count].split(':');
-      const [c1, c2] = nums_P.split(',');
-      item = {
-        ...item,
-        c1: this.tranformPrize(this.extractNum(c1)),
-        c2: this.tranformPrize(this.extractNum(c2)),
-      };
-
-      arr.push(item);
-      count += 2;
-    }
+    input.forEach((line) => {
+      const position = this.parseValue(line, 'p=');
+      const velocity = this.parseValue(line, 'v=');
+      const [px, py] = position.split(',');
+      const [vx, vy] = velocity.split(',');
+      arr.push({ px, py, vx, vy });
+    });
     return arr;
   }
 
-  tranformPrize(num: number): number {
-    return 10000000000000 + num;
+  parseValue(str: string, label: string): string {
+    const idx = str.lastIndexOf(label);
+    return idx != -1
+      ? str.substring(
+          idx + label.length,
+          this.findFirstEmptyIdx(str, idx + label.length)
+        )
+      : '';
   }
 
-  extractNum(str: string): number {
-    return +str.replace(/^\D+/g, '');
+  findFirstEmptyIdx(str: string, start: number): number {
+    let count = start;
+
+    while (str.charAt(count).trim() && count < str.length) {
+      const s = str.charAt(count);
+      count++;
+    }
+
+    return count;
   }
 
   parseRow(data: any): any[] {
