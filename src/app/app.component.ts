@@ -49,7 +49,6 @@ export class AppComponent {
       directions.forEach((line) => {
         line.split('').forEach((direction: string) => {
           curr = this.move(curr!, direction);
-          const s = this.map;
         });
       });
     }
