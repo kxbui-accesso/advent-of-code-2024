@@ -1,11 +1,14 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-// const MAP_WIDTH = 101;
-// const MAP_HEIGHT = 103;
-const MAP_WIDTH = 11;
-const MAP_HEIGHT = 7;
-const ITERATION = 100;
+const UP = '^';
+const DOWN = 'v';
+const LEFT = '<';
+const RIGHT = '>';
+const BOT = '@';
+const BOX = 'O';
+const WALL = '#';
+const PATH = '.';
 
 @Component({
   selector: 'app-root',
@@ -15,125 +18,208 @@ const ITERATION = 100;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `p=0,4 v=3,-3
-p=6,3 v=-1,-3
-p=10,3 v=-1,2
-p=2,0 v=2,-1
-p=0,0 v=1,3
-p=3,0 v=-2,-2
-p=7,6 v=-1,-3
-p=3,0 v=-1,-2
-p=9,3 v=2,3
-p=7,3 v=-1,2
-p=2,4 v=2,-3
-p=9,5 v=-3,-3`;
+  input = `########
+#..O.O.#
+##@.O..#
+#...O..#
+#.#.O..#
+#...O..#
+#......#
+########
+
+<^^>>>vv<v>>v<<`;
 
   result = signal('');
+  map: any[] | null = null;
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const robots = this.parseInput(this.parseRow(this.input));
-      const total = this.start(robots);
+      const { data, directions } = this.parseInput(this.parseRow(this.input));
+      this.map = data.map((row) => row.split(''));
+      const total = this.start(directions);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(data: any[]): number {
-    let curr = [...data];
-
-    Array.from(Array(ITERATION).keys()).forEach((_) => {
-      curr.forEach((item, i) => {
-        const { x, y } = this.move(item);
-        curr[i].px = x;
-        curr[i].py = y;
+  start(directions: any[]): number {
+    let curr = this.findBot();
+    if (curr) {
+      directions.forEach((line) => {
+        line.split('').forEach((direction: string) => {
+          curr = this.move(curr!, direction);
+          const s = this.map;
+        });
       });
-    });
-    return this.getTotalSafetyFactor(curr);
+    }
+    return this.calcGPSCoordinate();
   }
 
-  getTotalSafetyFactor(arr: any[]): number {
-    const map = new Map();
-    const midX = Math.round((MAP_WIDTH - 1) / 2);
-    const midY = Math.round((MAP_HEIGHT - 1) / 2);
-
-    arr.forEach((item) => {
-      if (item.px < midX && item.py < midY) {
-        this.addToMap(map, 'Q1');
-      } else if (item.px > midX && item.py < midY) {
-        this.addToMap(map, 'Q2');
-      } else if (item.px < midX && item.py > midY) {
-        this.addToMap(map, 'Q3');
-      } else if (item.px > midX && item.py > midY) {
-        this.addToMap(map, 'Q4');
+  calcGPSCoordinate(): number {
+    let total = 0;
+    if (this.map) {
+      for (let row = 0; row < this.map.length; row++) {
+        for (let col = 0; col < this.map[row].length; col++) {
+          if (this.map[row][col] === BOX) {
+            total += row * 100 + col;
+          }
+        }
       }
-    });
-    return Array.from(map.values()).reduce((total, curr) => (total *= curr), 1);
+    }
+    return total;
   }
 
-  addToMap(map: Map<string, number>, key: string) {
-    map.has(key) ? map.set(key, 1 + map.get(key)!) : map.set(key, 1);
+  findBot(): { row: number; col: number } | null {
+    if (this.map) {
+      for (let row = 0; row < this.map.length; row++) {
+        for (let col = 0; col < this.map[row].length; col++) {
+          if (this.map[row][col] === BOT) {
+            return { row, col };
+          }
+        }
+      }
+    }
+    return null;
   }
 
-  move(params: { px: number; py: number; vx: number; vy: number }): {
-    x: number;
-    y: number;
-  } {
-    let x = Number(params.px) + Number(params.vx);
-    let y = Number(params.py) + Number(params.vy);
+  move(
+    curr: { row: number; col: number },
+    direction: string
+  ): { row: number; col: number } {
+    const availLoc = this.findAvailPath(curr, direction);
+    if (availLoc) {
+      // neighbor is available
+      if (this.checkNeighbor(curr, direction, PATH)) {
+        this.swap(curr, availLoc);
+        return availLoc;
+      }
+      // neighbor is a box
+      else if (this.checkNeighbor(curr, direction, BOX)) {
+        const neighbor = this.getNeighbor(curr, direction);
+        this.swap(neighbor, availLoc);
+        this.swap(curr, neighbor);
+        return neighbor;
+      }
+    }
+    return curr;
+  }
 
-    if (x < 0) {
-      x = MAP_WIDTH - Math.abs(x);
+  checkNeighbor(
+    curr: { row: number; col: number },
+    direction: string,
+    type: string
+  ): boolean {
+    if (this.map) {
+      const { row, col } = this.getNeighbor(curr, direction);
+      return this.map[row][col] === type;
+    }
+    return false;
+  }
+
+  getNeighbor(
+    curr: { row: number; col: number },
+    direction: string
+  ): { row: number; col: number } {
+    switch (direction) {
+      case LEFT:
+        return { row: curr.row, col: curr.col - 1 };
+      case RIGHT:
+        return { row: curr.row, col: curr.col + 1 };
+      case UP:
+        return { row: curr.row - 1, col: curr.col };
+      case DOWN:
+        return { row: curr.row + 1, col: curr.col };
+    }
+    return curr;
+  }
+
+  findAvailPath(
+    curr: { row: number; col: number },
+    direction: string
+  ): { row: number; col: number } | null {
+    switch (direction) {
+      case LEFT:
+        return this.findAvailPathHorizontal(curr.row, curr.col - 1, false);
+      case RIGHT:
+        return this.findAvailPathHorizontal(curr.row, curr.col + 1, true);
+      case UP:
+        return this.findAvailPathVertical(curr.col, curr.row - 1, false);
+      case DOWN:
+        return this.findAvailPathVertical(curr.col, curr.row + 1, true);
     }
 
-    if (x >= MAP_WIDTH) {
-      x = x - MAP_WIDTH;
-    }
-
-    if (y < 0) {
-      y = MAP_HEIGHT - Math.abs(y);
-    }
-
-    if (y >= MAP_HEIGHT) {
-      y = y - MAP_HEIGHT;
-    }
-
-    return { x, y };
+    return null;
   }
 
-  parseInput(input: string[]): any[] {
-    const arr: any[] = [];
+  findAvailPathHorizontal(
+    row: number,
+    starCol: number,
+    rightWard = false
+  ): { row: number; col: number } | null {
+    if (this.map) {
+      for (
+        let i = starCol;
+        rightWard ? i < this.map[0].length : i >= 0;
+        rightWard ? i++ : i--
+      ) {
+        if (this.isWall(this.map[row][i])) {
+          return null;
+        }
+        if (this.isAvail(this.map[row][i])) {
+          return { row, col: i };
+        }
+      }
+    }
 
-    input.forEach((line) => {
-      const position = this.parseValue(line, 'p=');
-      const velocity = this.parseValue(line, 'v=');
-      const [px, py] = position.split(',');
-      const [vx, vy] = velocity.split(',');
-      arr.push({ px, py, vx, vy });
-    });
-    return arr;
+    return null;
   }
 
-  parseValue(str: string, label: string): string {
-    const idx = str.lastIndexOf(label);
-    return idx != -1
-      ? str.substring(
-          idx + label.length,
-          this.findFirstEmptyIdx(str, idx + label.length)
-        )
-      : '';
+  findAvailPathVertical(
+    col: number,
+    starRow: number,
+    downWard = false
+  ): { row: number; col: number } | null {
+    if (this.map) {
+      for (
+        let i = starRow;
+        downWard ? i < this.map.length : i >= 0;
+        downWard ? i++ : i--
+      ) {
+        if (this.isWall(this.map[i][col])) {
+          return null;
+        }
+        if (this.isAvail(this.map[i][col])) {
+          return { row: i, col };
+        }
+      }
+    }
+    return null;
   }
 
-  findFirstEmptyIdx(str: string, start: number): number {
-    let count = start;
+  swap(loc1: { row: number; col: number }, loc2: { row: number; col: number }) {
+    if (this.map) {
+      const temp = this.map[loc1.row][loc1.col];
+      this.map[loc1.row][loc1.col] = this.map[loc2.row][loc2.col];
+      this.map[loc2.row][loc2.col] = temp;
+    }
+  }
 
-    while (str.charAt(count).trim() && count < str.length) {
-      const s = str.charAt(count);
+  isWall(str: string) {
+    return str === WALL;
+  }
+
+  isAvail(str: string) {
+    return str === PATH;
+  }
+
+  parseInput(input: any[]): { data: any[]; directions: any[] } {
+    let count = 0;
+
+    while (input[count].trim()) {
       count++;
     }
-
-    return count;
+    return { data: input.slice(0, count), directions: input.slice(count + 1) };
   }
 
   parseRow(data: any): any[] {
