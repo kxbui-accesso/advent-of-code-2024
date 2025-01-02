@@ -1,19 +1,16 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const UP = '^';
-const DOWN = 'v';
-const LEFT = '<';
-const RIGHT = '>';
-const BOT = '@';
-const SINGLE_BOX = 'O';
-const LEFT_BOX = '[';
-const RIGHT_BOX = ']';
-const WALL = '#';
+const EAST = '>';
+const WEST = '<';
+const NORTH = '^';
+const SOUTH = 'v';
+const START = 'S';
+const END = 'E';
 const PATH = '.';
 
 /**
- * Use recursion
+ * Use A* algoirthm with Manhattan distance heuristic
  */
 @Component({
   selector: 'app-root',
@@ -23,219 +20,201 @@ const PATH = '.';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `########
-#..O.O.#
-##@.O..#
-#...O..#
-#.#.O..#
-#...O..#
-#......#
-########
-
-<^^>>>vv<v>>v<<`;
+  input = `#################
+#...#...#...#..E#
+#.#.#.#.#.#.#.#.#
+#.#.#.#...#...#.#
+#.#.#.#.###.#.#.#
+#...#.#.#.....#.#
+#.#.#.#.#.#####.#
+#.#...#.#.#.....#
+#.#.#####.#.###.#
+#.#.#.......#...#
+#.#.###.#####.###
+#.#.#...#.....#.#
+#.#.#.#####.###.#
+#.#.#.........#.#
+#.#.#.#########.#
+#S#.............#
+#################`;
 
   result = signal('');
-  map: any[] | null = null;
+  visited = new Set();
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const { data, directions } = this.parseInput(this.parseRow(this.input));
-      this.map = this.transformMap(data.map((row) => row.split('')));
-      const total = this.start(directions);
+      this.visited.clear();
+      const map = this.parseRow(this.input).map((row) => row.split(''));
+      const total = this.start(map);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(directions: any[]): number {
-    let curr = null;
-    directions.forEach((line) => {
-      line.split('').forEach((direction: string) => {
-        curr = this.findBot();
-        this.move([curr!], direction);
-      });
-    });
-    return this.calcGPSCoordinate();
-  }
+  start(map: any[][]): number {
+    const start = this.findType(map, START);
+    const goal = this.findType(map, END);
+    let goalFound = false;
 
-  transformMap(data: any[][]): any[][] {
-    const map = [...data];
-    for (let row = 0; row < map.length; row++) {
-      const arr = [];
-      for (let col = 0; col < map[row].length; col++) {
-        if (map[row][col] === SINGLE_BOX) {
-          arr.push(LEFT_BOX);
-          arr.push(RIGHT_BOX);
-        } else if (map[row][col] === BOT) {
-          arr.push(BOT);
-          arr.push(PATH);
-        } else {
-          arr.push(map[row][col]);
-          arr.push(map[row][col]);
+    if (start && goal) {
+      const open: any[] = [
+        { location: { ...start, direction: EAST }, f: 0, g: 0 },
+      ];
+      const close: any[] = [];
+
+      while (open.length && !goalFound) {
+        const indexToRemove = this.findSmallestIdx(open);
+        const [q] = open.splice(indexToRemove, 1);
+        this.visited.add(this.formatLoc(q.location));
+
+        let paths = this.findPath(map, q.location);
+        if (paths.length) {
+          paths.forEach((path) => {
+            if (map[path.row][path.col] === END) {
+              // goal found, end search
+              goalFound = true;
+            } else {
+              // successor.g = q.g + distance between successor and q
+              const g =
+                q.g + (q.location.direction != path.direction ? 1001 : 1);
+              // successor.h = distance from goal to successor
+              const h = this.calcDistance(path, goal);
+              // successor.f = successor.g + successor.h
+              const f = g + h;
+
+              const successor = { location: path, f, parent: q, g };
+
+              // if a node with the same position as
+              // successor is in the OPEN list which has a
+              // lower f than successor, skip this successor
+
+              // if a node with the same position as
+              // successor is in the CLOSED list which has
+              // a lower f than successor, skip this successor
+
+              // otherwise, add the node to the open list
+              const itemInOpen = open.find((item) =>
+                this.isSameLocation(item.location, path)
+              );
+              const itemInClose = close.find((item) =>
+                this.isSameLocation(item.location, path)
+              );
+              if (
+                !itemInOpen ||
+                itemInOpen.f < f ||
+                !itemInClose ||
+                itemInClose.f < f
+              ) {
+                open.push(successor);
+              }
+            }
+          });
+        }
+        close.push(q);
+        if (goalFound) {
+          return q.g + 1;
         }
       }
-      map[row] = arr;
     }
-    return map;
+    return 0;
   }
 
-  calcGPSCoordinate(): number {
-    let total = 0;
-    if (this.map) {
-      for (let row = 0; row < this.map.length; row++) {
-        for (let col = 0; col < this.map[row].length; col++) {
-          if (this.map[row][col] === LEFT_BOX) {
-            total += row * 100 + col;
-          }
-        }
-      }
-    }
-    return total;
-  }
-
-  findBot(): { row: number; col: number } | null {
-    if (this.map) {
-      for (let row = 0; row < this.map.length; row++) {
-        for (let col = 0; col < this.map[row].length; col++) {
-          if (this.map[row][col] === BOT) {
-            return { row, col };
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  move(curr: { row: number; col: number }[], direction: string): boolean {
-    if (curr.some((item) => this.faceWall(item, direction))) {
-      return false;
-    }
-    if (curr.some((item) => this.faceBoxes(item, direction))) {
-      const boxes = this.findSurroundingBoxes(curr, direction);
-      if (boxes.length && !this.move(boxes, direction)) {
-        return false;
-      }
-    }
-    curr.forEach((item) => {
-      this.swap(item, this.getNeighbor(item, direction));
-    });
-    return true;
-  }
-
-  findSurroundingBoxes(
-    curr: { row: number; col: number }[],
-    direction: string
-  ): any[] {
-    let arr: any[] = [];
-    curr.forEach((item) => {
-      if (this.faceBoxes(item, direction)) {
-        const firstHalfBox = this.getNeighbor(item, direction);
-        const secondHalfBox = this.findOtherHalfBox(firstHalfBox);
-        !this.isIncluded(curr, firstHalfBox) &&
-          !this.isIncluded(arr, firstHalfBox) &&
-          arr.push(firstHalfBox);
-        !this.isIncluded(curr, secondHalfBox) &&
-          !this.isIncluded(arr, secondHalfBox) &&
-          arr.push(secondHalfBox);
-        arr = this.sortByDirection(arr, direction);
-      }
-    });
-    return arr;
-  }
-
-  sortByDirection(arr: any[], direction: string): any[] {
-    switch (direction) {
-      case LEFT:
-        return arr.slice().sort((a, b) => a.col - b.col);
-      case RIGHT:
-        return arr.slice().sort((a, b) => b.col - a.col);
-      case UP:
-        return arr.slice().sort((a, b) => a.row - b.row);
-      case DOWN:
-        return arr.slice().sort((a, b) => b.row - a.row);
-    }
-    return arr;
-  }
-
-  isIncluded(arr: any[], target: { row: number; col: number } | null): boolean {
-    return target
-      ? arr.some((item) => item.row === target.row && item.col === target.col)
-      : false;
-  }
-
-  findOtherHalfBox(halfBox: {
-    row: number;
-    col: number;
-  }): { row: number; col: number } | null {
-    if (this.map) {
-      if (this.map[halfBox.row][halfBox.col] === LEFT_BOX) {
-        return { row: halfBox.row, col: halfBox.col + 1 };
-      }
-      return { row: halfBox.row, col: halfBox.col - 1 };
-    }
-    return null;
-  }
-
-  faceWall(curr: { row: number; col: number }, direction: string): boolean {
-    return this.checkNeighbor(curr, direction, WALL);
-  }
-
-  faceBoxes(curr: { row: number; col: number }, direction: string): boolean {
-    return (
-      this.checkNeighbor(curr, direction, LEFT_BOX) ||
-      this.checkNeighbor(curr, direction, RIGHT_BOX)
-    );
-  }
-
-  checkNeighbor(
-    curr: { row: number; col: number },
-    direction: string,
-    type: string
+  isSameLocation(
+    a: { row: number; col: number },
+    b: { row: number; col: number }
   ): boolean {
-    if (this.map) {
-      const { row, col } = this.getNeighbor(curr, direction);
-      return this.map[row][col] === type;
-    }
-    return false;
+    return a.row === b.row && a.col === b.col;
   }
 
-  getNeighbor(
+  findSmallestIdx(arr: any[]) {
+    if (arr.length === 1) {
+      return 0;
+    }
+    let smallest = arr[0].f;
+    let idx = 0;
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i].f < smallest) {
+        smallest = arr[i].f;
+        idx = i;
+      }
+    }
+    return idx;
+  }
+
+  calcDistance(
     curr: { row: number; col: number },
-    direction: string
-  ): { row: number; col: number } {
-    switch (direction) {
-      case LEFT:
-        return { row: curr.row, col: curr.col - 1 };
-      case RIGHT:
-        return { row: curr.row, col: curr.col + 1 };
-      case UP:
-        return { row: curr.row - 1, col: curr.col };
-      case DOWN:
-        return { row: curr.row + 1, col: curr.col };
-    }
-    return curr;
+    goal: { row: number; col: number }
+  ) {
+    return Math.abs(curr.row - goal.row) + Math.abs(curr.col - goal.col);
   }
 
-  swap(loc1: { row: number; col: number }, loc2: { row: number; col: number }) {
-    if (this.map) {
-      const temp = this.map[loc1.row][loc1.col];
-      this.map[loc1.row][loc1.col] = this.map[loc2.row][loc2.col];
-      this.map[loc2.row][loc2.col] = temp;
+  findPath(
+    map: any[][],
+    curr: { row: number; col: number; direction: string }
+  ): any[] {
+    const arr = [];
+    let neighbor = null;
+
+    neighbor = { row: curr.row, col: curr.col + 1, direction: EAST };
+    if (
+      curr.direction !== WEST &&
+      this.isPath(map[neighbor.row][neighbor.col]) &&
+      !this.hasVisited(neighbor)
+    ) {
+      arr.push(neighbor);
     }
+
+    neighbor = { row: curr.row, col: curr.col - 1, direction: WEST };
+    if (
+      curr.direction !== EAST &&
+      this.isPath(map[neighbor.row][neighbor.col]) &&
+      !this.hasVisited(neighbor)
+    ) {
+      arr.push(neighbor);
+    }
+
+    neighbor = { row: curr.row - 1, col: curr.col, direction: NORTH };
+    if (
+      curr.direction !== SOUTH &&
+      this.isPath(map[neighbor.row][neighbor.col]) &&
+      !this.hasVisited(neighbor)
+    ) {
+      arr.push(neighbor);
+    }
+
+    neighbor = { row: curr.row + 1, col: curr.col, direction: SOUTH };
+    if (
+      curr.direction !== NORTH &&
+      this.isPath(map[neighbor.row][neighbor.col]) &&
+      !this.hasVisited(neighbor)
+    ) {
+      arr.push(neighbor);
+    }
+    return arr;
   }
 
-  isAvail(str: string) {
-    return str === PATH;
+  hasVisited(curr: { row: number; col: number; direction: string }) {
+    return this.visited.has(this.formatLoc(curr));
   }
 
-  parseInput(input: any[]): { data: any[]; directions: any[] } {
-    let count = 0;
-
-    while (input[count].trim()) {
-      count++;
+  findType(map: any[][], type: string): { row: number; col: number } | null {
+    for (let row = 0; row < map.length; row++) {
+      for (let col = 0; col < map[row].length; col++) {
+        if (map[row][col] === type) {
+          return { row, col };
+        }
+      }
     }
-    return { data: input.slice(0, count), directions: input.slice(count + 1) };
+    return null;
+  }
+
+  isPath(str: string): boolean {
+    return str === PATH || str === END;
+  }
+
+  formatLoc(curr: { row: number; col: number; direction: string }) {
+    return `${curr.row}-${curr.col}-${curr.direction}`;
   }
 
   parseRow(data: any): any[] {
