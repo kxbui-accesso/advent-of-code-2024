@@ -6,10 +6,15 @@ const DOWN = 'v';
 const LEFT = '<';
 const RIGHT = '>';
 const BOT = '@';
-const BOX = 'O';
+const SINGLE_BOX = 'O';
+const LEFT_BOX = '[';
+const RIGHT_BOX = ']';
 const WALL = '#';
 const PATH = '.';
 
+/**
+ * Use recursion
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -37,23 +42,42 @@ export class AppComponent {
 
     setTimeout(() => {
       const { data, directions } = this.parseInput(this.parseRow(this.input));
-      this.map = data.map((row) => row.split(''));
+      this.map = this.transformMap(data.map((row) => row.split('')));
       const total = this.start(directions);
       this.result.set(`${total}`);
     }, 0);
   }
 
   start(directions: any[]): number {
-    let curr = this.findBot();
-    if (curr) {
-      directions.forEach((line) => {
-        line.split('').forEach((direction: string) => {
-          curr = this.move(curr!, direction);
-          const s = this.map;
-        });
+    let curr = null;
+    directions.forEach((line) => {
+      line.split('').forEach((direction: string) => {
+        curr = this.findBot();
+        this.move([curr!], direction);
       });
-    }
+    });
     return this.calcGPSCoordinate();
+  }
+
+  transformMap(data: any[][]): any[][] {
+    const map = [...data];
+    for (let row = 0; row < map.length; row++) {
+      const arr = [];
+      for (let col = 0; col < map[row].length; col++) {
+        if (map[row][col] === SINGLE_BOX) {
+          arr.push(LEFT_BOX);
+          arr.push(RIGHT_BOX);
+        } else if (map[row][col] === BOT) {
+          arr.push(BOT);
+          arr.push(PATH);
+        } else {
+          arr.push(map[row][col]);
+          arr.push(map[row][col]);
+        }
+      }
+      map[row] = arr;
+    }
+    return map;
   }
 
   calcGPSCoordinate(): number {
@@ -61,7 +85,7 @@ export class AppComponent {
     if (this.map) {
       for (let row = 0; row < this.map.length; row++) {
         for (let col = 0; col < this.map[row].length; col++) {
-          if (this.map[row][col] === BOX) {
+          if (this.map[row][col] === LEFT_BOX) {
             total += row * 100 + col;
           }
         }
@@ -83,26 +107,85 @@ export class AppComponent {
     return null;
   }
 
-  move(
-    curr: { row: number; col: number },
-    direction: string
-  ): { row: number; col: number } {
-    const availLoc = this.findAvailPath(curr, direction);
-    if (availLoc) {
-      // neighbor is available
-      if (this.checkNeighbor(curr, direction, PATH)) {
-        this.swap(curr, availLoc);
-        return availLoc;
-      }
-      // neighbor is a box
-      else if (this.checkNeighbor(curr, direction, BOX)) {
-        const neighbor = this.getNeighbor(curr, direction);
-        this.swap(neighbor, availLoc);
-        this.swap(curr, neighbor);
-        return neighbor;
+  move(curr: { row: number; col: number }[], direction: string): boolean {
+    if (curr.some((item) => this.faceWall(item, direction))) {
+      return false;
+    }
+    if (curr.some((item) => this.faceBoxes(item, direction))) {
+      const boxes = this.findSurroundingBoxes(curr, direction);
+      if (boxes.length && !this.move(boxes, direction)) {
+        return false;
       }
     }
-    return curr;
+    curr.forEach((item) => {
+      this.swap(item, this.getNeighbor(item, direction));
+    });
+    return true;
+  }
+
+  findSurroundingBoxes(
+    curr: { row: number; col: number }[],
+    direction: string
+  ): any[] {
+    let arr: any[] = [];
+    curr.forEach((item) => {
+      if (this.faceBoxes(item, direction)) {
+        const firstHalfBox = this.getNeighbor(item, direction);
+        const secondHalfBox = this.findOtherHalfBox(firstHalfBox);
+        !this.isIncluded(curr, firstHalfBox) &&
+          !this.isIncluded(arr, firstHalfBox) &&
+          arr.push(firstHalfBox);
+        !this.isIncluded(curr, secondHalfBox) &&
+          !this.isIncluded(arr, secondHalfBox) &&
+          arr.push(secondHalfBox);
+        arr = this.sortByDirection(arr, direction);
+      }
+    });
+    return arr;
+  }
+
+  sortByDirection(arr: any[], direction: string): any[] {
+    switch (direction) {
+      case LEFT:
+        return arr.slice().sort((a, b) => a.col - b.col);
+      case RIGHT:
+        return arr.slice().sort((a, b) => b.col - a.col);
+      case UP:
+        return arr.slice().sort((a, b) => a.row - b.row);
+      case DOWN:
+        return arr.slice().sort((a, b) => b.row - a.row);
+    }
+    return arr;
+  }
+
+  isIncluded(arr: any[], target: { row: number; col: number } | null): boolean {
+    return target
+      ? arr.some((item) => item.row === target.row && item.col === target.col)
+      : false;
+  }
+
+  findOtherHalfBox(halfBox: {
+    row: number;
+    col: number;
+  }): { row: number; col: number } | null {
+    if (this.map) {
+      if (this.map[halfBox.row][halfBox.col] === LEFT_BOX) {
+        return { row: halfBox.row, col: halfBox.col + 1 };
+      }
+      return { row: halfBox.row, col: halfBox.col - 1 };
+    }
+    return null;
+  }
+
+  faceWall(curr: { row: number; col: number }, direction: string): boolean {
+    return this.checkNeighbor(curr, direction, WALL);
+  }
+
+  faceBoxes(curr: { row: number; col: number }, direction: string): boolean {
+    return (
+      this.checkNeighbor(curr, direction, LEFT_BOX) ||
+      this.checkNeighbor(curr, direction, RIGHT_BOX)
+    );
   }
 
   checkNeighbor(
@@ -134,79 +217,12 @@ export class AppComponent {
     return curr;
   }
 
-  findAvailPath(
-    curr: { row: number; col: number },
-    direction: string
-  ): { row: number; col: number } | null {
-    switch (direction) {
-      case LEFT:
-        return this.findAvailPathHorizontal(curr.row, curr.col - 1, false);
-      case RIGHT:
-        return this.findAvailPathHorizontal(curr.row, curr.col + 1, true);
-      case UP:
-        return this.findAvailPathVertical(curr.col, curr.row - 1, false);
-      case DOWN:
-        return this.findAvailPathVertical(curr.col, curr.row + 1, true);
-    }
-
-    return null;
-  }
-
-  findAvailPathHorizontal(
-    row: number,
-    starCol: number,
-    rightWard = false
-  ): { row: number; col: number } | null {
-    if (this.map) {
-      for (
-        let i = starCol;
-        rightWard ? i < this.map[0].length : i >= 0;
-        rightWard ? i++ : i--
-      ) {
-        if (this.isWall(this.map[row][i])) {
-          return null;
-        }
-        if (this.isAvail(this.map[row][i])) {
-          return { row, col: i };
-        }
-      }
-    }
-
-    return null;
-  }
-
-  findAvailPathVertical(
-    col: number,
-    starRow: number,
-    downWard = false
-  ): { row: number; col: number } | null {
-    if (this.map) {
-      for (
-        let i = starRow;
-        downWard ? i < this.map.length : i >= 0;
-        downWard ? i++ : i--
-      ) {
-        if (this.isWall(this.map[i][col])) {
-          return null;
-        }
-        if (this.isAvail(this.map[i][col])) {
-          return { row: i, col };
-        }
-      }
-    }
-    return null;
-  }
-
   swap(loc1: { row: number; col: number }, loc2: { row: number; col: number }) {
     if (this.map) {
       const temp = this.map[loc1.row][loc1.col];
       this.map[loc1.row][loc1.col] = this.map[loc2.row][loc2.col];
       this.map[loc2.row][loc2.col] = temp;
     }
-  }
-
-  isWall(str: string) {
-    return str === WALL;
   }
 
   isAvail(str: string) {
