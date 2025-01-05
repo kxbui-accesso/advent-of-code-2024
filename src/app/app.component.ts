@@ -21,22 +21,22 @@ const PATH = '.';
 })
 export class AppComponent {
   input = `#################
-#...#...#...#..E#
-#.#.#.#.#.#.#.#.#
-#.#.#.#...#...#.#
-#.#.#.#.###.#.#.#
-#...#.#.#.....#.#
-#.#.#.#.#.#####.#
-#.#...#.#.#.....#
-#.#.#####.#.###.#
-#.#.#.......#...#
-#.#.###.#####.###
-#.#.#...#.....#.#
-#.#.#.#####.###.#
-#.#.#.........#.#
-#.#.#.#########.#
-#S#.............#
-#################`;
+  #...#...#...#..E#
+  #.#.#.#.#.#.#.#.#
+  #.#.#.#...#...#.#
+  #.#.#.#.###.#.#.#
+  #...#.#.#.....#.#
+  #.#.#.#.#.#####.#
+  #.#...#.#.#.....#
+  #.#.#####.#.###.#
+  #.#.#.......#...#
+  #.#.###.#####.###
+  #.#.#...#.....#.#
+  #.#.#.#####.###.#
+  #.#.#.........#.#
+  #.#.#.#########.#
+  #S#.............#
+  #################`;
 
   result = signal('');
   visited = new Set();
@@ -53,9 +53,18 @@ export class AppComponent {
   }
 
   start(map: any[][]): number {
+    let set = new Set();
+    const result = this.search(map);
+    if (result) {
+      return this.backtrack(result, result[result.length - 1]).size;
+    }
+
+    return set.size;
+  }
+
+  search(map: any[][]): any[] | null {
     const start = this.findType(map, START);
     const goal = this.findType(map, END);
-    let goalFound = false;
 
     if (start && goal) {
       const open: any[] = [
@@ -63,27 +72,41 @@ export class AppComponent {
       ];
       const close: any[] = [];
 
-      while (open.length && !goalFound) {
+      while (open.length) {
         const indexToRemove = this.findSmallestIdx(open);
         const [q] = open.splice(indexToRemove, 1);
         this.visited.add(this.formatLoc(q.location));
 
+        if (map[q.location.row][q.location.col] === END) {
+          // goal found, end search
+          close.push(q);
+          return close;
+        }
+
         let paths = this.findPath(map, q.location);
         if (paths.length) {
-          paths.forEach((path) => {
-            if (map[path.row][path.col] === END) {
-              // goal found, end search
-              goalFound = true;
-            } else {
+          paths
+            .filter((path) => path.visited)
+            .forEach((path) => {
+              const g = q.g + path.cost;
+              close.push({
+                location: path,
+                f: q.g + q.h,
+                parent: q,
+                g,
+              });
+            });
+          paths
+            .filter((path) => !path.visited)
+            .forEach((path) => {
               // successor.g = q.g + distance between successor and q
-              const g =
-                q.g + (q.location.direction != path.direction ? 1001 : 1);
+              const g = q.g + path.cost;
               // successor.h = distance from goal to successor
               const h = this.calcDistance(path, goal);
               // successor.f = successor.g + successor.h
               const f = g + h;
 
-              const successor = { location: path, f, parent: q, g };
+              const successor = { location: path, f, parent: q, g, h };
 
               // if a node with the same position as
               // successor is in the OPEN list which has a
@@ -108,23 +131,64 @@ export class AppComponent {
               ) {
                 open.push(successor);
               }
-            }
-          });
+            });
         }
         close.push(q);
-        if (goalFound) {
-          return q.g + 1;
-        }
       }
     }
-    return 0;
+    return null;
+  }
+
+  backtrack(nodes: any[], lastNode: any) {
+    let curr = lastNode;
+    const nodesOnBestPath = this.reconstructPath(curr);
+    let minCost = curr.g;
+    let allPaths = new Set([...nodesOnBestPath]);
+
+    while (curr) {
+      const visitedNodes = nodes.filter(
+        (node) =>
+          this.isSameLocation(node.location, curr.location, true) &&
+          node.parent &&
+          !allPaths.has(
+            this.formatLoc({ ...node.parent.location, direction: undefined })
+          )
+      );
+      if (visitedNodes.length) {
+        visitedNodes.forEach((node) => {
+          const delta = node.g - node.parent.g;
+          if (node.parent.g + delta <= curr.g) {
+            allPaths = new Set([...allPaths, ...this.backtrack(nodes, node)]);
+          }
+        });
+      }
+      minCost -= minCost - curr.g;
+      curr = curr.parent;
+    }
+    return allPaths;
+  }
+
+  reconstructPath(node: { parent: any; location: any }): Set<string> {
+    const path = new Set<string>();
+    let curr = node;
+
+    while (curr) {
+      const { direction, ...remaining } = curr.location;
+      path.add(this.formatLoc(remaining));
+      curr = curr.parent;
+    }
+    return path;
   }
 
   isSameLocation(
-    a: { row: number; col: number },
-    b: { row: number; col: number }
+    a: { row: number; col: number; direction: string },
+    b: { row: number; col: number; direction: string },
+    ignoreDirection = false
   ): boolean {
-    return a.row === b.row && a.col === b.col;
+    const isLocSame = a.row === b.row && a.col === b.col;
+    return !ignoreDirection
+      ? isLocSame && a.direction === b.direction
+      : isLocSame;
   }
 
   findSmallestIdx(arr: any[]) {
@@ -154,43 +218,39 @@ export class AppComponent {
     curr: { row: number; col: number; direction: string }
   ): any[] {
     const arr = [];
-    let neighbor = null;
 
-    neighbor = { row: curr.row, col: curr.col + 1, direction: EAST };
-    if (
-      curr.direction !== WEST &&
-      this.isPath(map[neighbor.row][neighbor.col]) &&
-      !this.hasVisited(neighbor)
-    ) {
-      arr.push(neighbor);
-    }
+    const moveForward: Record<string, any> = {
+      [EAST]: { row: curr.row, col: curr.col + 1, direction: EAST },
+      [WEST]: { row: curr.row, col: curr.col - 1, direction: WEST },
+      [NORTH]: { row: curr.row - 1, col: curr.col, direction: NORTH },
+      [SOUTH]: { row: curr.row + 1, col: curr.col, direction: SOUTH },
+    };
 
-    neighbor = { row: curr.row, col: curr.col - 1, direction: WEST };
-    if (
-      curr.direction !== EAST &&
-      this.isPath(map[neighbor.row][neighbor.col]) &&
-      !this.hasVisited(neighbor)
-    ) {
-      arr.push(neighbor);
-    }
+    const turnDirections: Record<string, string> = {
+      [EAST]: `${NORTH},${SOUTH}`,
+      [WEST]: `${NORTH},${SOUTH}`,
+      [NORTH]: `${EAST},${WEST}`,
+      [SOUTH]: `${EAST},${WEST}`,
+    };
 
-    neighbor = { row: curr.row - 1, col: curr.col, direction: NORTH };
-    if (
-      curr.direction !== SOUTH &&
-      this.isPath(map[neighbor.row][neighbor.col]) &&
-      !this.hasVisited(neighbor)
-    ) {
-      arr.push(neighbor);
-    }
+    // move forward
+    const neighbor = moveForward[curr.direction];
+    this.isPath(map[neighbor.row][neighbor.col]) &&
+      arr.push({ ...neighbor, cost: 1, visited: this.hasVisited(neighbor) });
 
-    neighbor = { row: curr.row + 1, col: curr.col, direction: SOUTH };
-    if (
-      curr.direction !== NORTH &&
-      this.isPath(map[neighbor.row][neighbor.col]) &&
-      !this.hasVisited(neighbor)
-    ) {
-      arr.push(neighbor);
-    }
+    // turns
+    const turns = turnDirections[curr.direction];
+    turns.split(',').forEach((direction) => {
+      const location = moveForward[direction];
+      this.isPath(map[location.row][location.col]) &&
+        !this.hasVisited(location) &&
+        arr.push({
+          ...curr,
+          direction,
+          cost: 1000,
+          visited: this.hasVisited(neighbor),
+        });
+    });
     return arr;
   }
 
@@ -214,7 +274,7 @@ export class AppComponent {
   }
 
   formatLoc(curr: { row: number; col: number; direction: string }) {
-    return `${curr.row}-${curr.col}-${curr.direction}`;
+    return [curr.row, curr.col, curr.direction].filter(Boolean).join('-');
   }
 
   parseRow(data: any): any[] {
