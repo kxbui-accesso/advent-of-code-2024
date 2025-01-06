@@ -1,17 +1,48 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const EAST = '>';
-const WEST = '<';
-const NORTH = '^';
-const SOUTH = 'v';
-const START = 'S';
-const END = 'E';
-const PATH = '.';
+const REGISTER_A = 'A';
+const REGISTER_B = 'B';
+const REGISTER_C = 'C';
+const OUTPUT = 'O';
 
-/**
- * Use A* algoirthm with Manhattan distance heuristic
- */
+const COMBO_OPERAND: Record<string, string> = {
+  '0': '0',
+  '1': '1',
+  '2': '2',
+  '3': '3',
+  '4': REGISTER_A,
+  '5': REGISTER_B,
+  '6': REGISTER_C,
+};
+
+const OPCODE: Record<string, string> = {
+  '0': 'ADV',
+  '1': 'BXL',
+  '2': 'BST',
+  '3': 'JNZ',
+  '4': 'BXC',
+  '5': 'OUT',
+  '6': 'BDV',
+  '7': 'CDV',
+};
+
+interface Register {
+  [REGISTER_A]: string;
+  [REGISTER_B]: string;
+  [REGISTER_C]: string;
+}
+
+interface Result {
+  [REGISTER_A]?: string;
+  [REGISTER_B]?: string;
+  [REGISTER_C]?: string;
+  [OUTPUT]?: string[];
+  jumpTo?: number;
+}
+
+type InstructionResult = Result | null;
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -20,261 +51,277 @@ const PATH = '.';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `#################
-  #...#...#...#..E#
-  #.#.#.#.#.#.#.#.#
-  #.#.#.#...#...#.#
-  #.#.#.#.###.#.#.#
-  #...#.#.#.....#.#
-  #.#.#.#.#.#####.#
-  #.#...#.#.#.....#
-  #.#.#####.#.###.#
-  #.#.#.......#...#
-  #.#.###.#####.###
-  #.#.#...#.....#.#
-  #.#.#.#####.###.#
-  #.#.#.........#.#
-  #.#.#.#########.#
-  #S#.............#
-  #################`;
+    input = `Register A: 729
+  Register B: 0
+  Register C: 0
+
+  Program: 0,1,5,4,3,0`;
 
   result = signal('');
-  visited = new Set();
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      this.visited.clear();
-      const map = this.parseRow(this.input).map((row) => row.split(''));
-      const total = this.start(map);
+      const input = this.parseInput(this.parseRow(this.input));
+      const total = this.start(input);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(map: any[][]): number {
-    let set = new Set();
-    const result = this.search(map);
-    if (result) {
-      return this.backtrack(result, result[result.length - 1]).size;
-    }
+  start(input: {
+    registerA: string;
+    registerB: string;
+    registerC: string;
+    program: string;
+  }): string {
+    const program = input.program.split(',');
+    let registers = {
+      [REGISTER_A]: input.registerA,
+      [REGISTER_B]: input.registerB,
+      [REGISTER_C]: input.registerC,
+    };
+    let output: string[] = [];
+    let count = 0;
 
-    return set.size;
-  }
-
-  search(map: any[][]): any[] | null {
-    const start = this.findType(map, START);
-    const goal = this.findType(map, END);
-
-    if (start && goal) {
-      const open: any[] = [
-        { location: { ...start, direction: EAST }, f: 0, g: 0 },
-      ];
-      const close: any[] = [];
-
-      while (open.length) {
-        const indexToRemove = this.findSmallestIdx(open);
-        const [q] = open.splice(indexToRemove, 1);
-        this.visited.add(this.formatLoc(q.location));
-
-        if (map[q.location.row][q.location.col] === END) {
-          // goal found, end search
-          close.push(q);
-          return close;
-        }
-
-        let paths = this.findPath(map, q.location);
-        if (paths.length) {
-          paths
-            .filter((path) => path.visited)
-            .forEach((path) => {
-              const g = q.g + path.cost;
-              close.push({
-                location: path,
-                f: q.g + q.h,
-                parent: q,
-                g,
-              });
-            });
-          paths
-            .filter((path) => !path.visited)
-            .forEach((path) => {
-              // successor.g = q.g + distance between successor and q
-              const g = q.g + path.cost;
-              // successor.h = distance from goal to successor
-              const h = this.calcDistance(path, goal);
-              // successor.f = successor.g + successor.h
-              const f = g + h;
-
-              const successor = { location: path, f, parent: q, g, h };
-
-              // if a node with the same position as
-              // successor is in the OPEN list which has a
-              // lower f than successor, skip this successor
-
-              // if a node with the same position as
-              // successor is in the CLOSED list which has
-              // a lower f than successor, skip this successor
-
-              // otherwise, add the node to the open list
-              const itemInOpen = open.find((item) =>
-                this.isSameLocation(item.location, path)
-              );
-              const itemInClose = close.find((item) =>
-                this.isSameLocation(item.location, path)
-              );
-              if (
-                !itemInOpen ||
-                itemInOpen.f < f ||
-                !itemInClose ||
-                itemInClose.f < f
-              ) {
-                open.push(successor);
-              }
-            });
-        }
-        close.push(q);
-      }
-    }
-    return null;
-  }
-
-  backtrack(nodes: any[], lastNode: any) {
-    let curr = lastNode;
-    const nodesOnBestPath = this.reconstructPath(curr);
-    let minCost = curr.g;
-    let allPaths = new Set([...nodesOnBestPath]);
-
-    while (curr) {
-      const visitedNodes = nodes.filter(
-        (node) =>
-          this.isSameLocation(node.location, curr.location, true) &&
-          node.parent &&
-          !allPaths.has(
-            this.formatLoc({ ...node.parent.location, direction: undefined })
-          )
-      );
-      if (visitedNodes.length) {
-        visitedNodes.forEach((node) => {
-          const delta = node.g - node.parent.g;
-          if (node.parent.g + delta <= curr.g) {
-            allPaths = new Set([...allPaths, ...this.backtrack(nodes, node)]);
+    while (count < program.length) {
+      const opcode = OPCODE[program[count]];
+      if (opcode === 'JNZ') {
+        const result = this.callOpcode('JNZ', registers, program[count + 1]);
+        count =
+          result && result.jumpTo !== undefined ? result.jumpTo : count + 2;
+      } else {
+        const result = this.callOpcode(
+          OPCODE[program[count]],
+          registers,
+          program[count + 1]
+        );
+        if (result) {
+          if (result[OUTPUT]) {
+            output = [...output, ...result[OUTPUT]];
+          } else {
+            registers = { ...registers, ...result };
           }
-        });
-      }
-      minCost -= minCost - curr.g;
-      curr = curr.parent;
-    }
-    return allPaths;
-  }
-
-  reconstructPath(node: { parent: any; location: any }): Set<string> {
-    const path = new Set<string>();
-    let curr = node;
-
-    while (curr) {
-      const { direction, ...remaining } = curr.location;
-      path.add(this.formatLoc(remaining));
-      curr = curr.parent;
-    }
-    return path;
-  }
-
-  isSameLocation(
-    a: { row: number; col: number; direction: string },
-    b: { row: number; col: number; direction: string },
-    ignoreDirection = false
-  ): boolean {
-    const isLocSame = a.row === b.row && a.col === b.col;
-    return !ignoreDirection
-      ? isLocSame && a.direction === b.direction
-      : isLocSame;
-  }
-
-  findSmallestIdx(arr: any[]) {
-    if (arr.length === 1) {
-      return 0;
-    }
-    let smallest = arr[0].f;
-    let idx = 0;
-    for (let i = 1; i < arr.length; i++) {
-      if (arr[i].f < smallest) {
-        smallest = arr[i].f;
-        idx = i;
-      }
-    }
-    return idx;
-  }
-
-  calcDistance(
-    curr: { row: number; col: number },
-    goal: { row: number; col: number }
-  ) {
-    return Math.abs(curr.row - goal.row) + Math.abs(curr.col - goal.col);
-  }
-
-  findPath(
-    map: any[][],
-    curr: { row: number; col: number; direction: string }
-  ): any[] {
-    const arr = [];
-
-    const moveForward: Record<string, any> = {
-      [EAST]: { row: curr.row, col: curr.col + 1, direction: EAST },
-      [WEST]: { row: curr.row, col: curr.col - 1, direction: WEST },
-      [NORTH]: { row: curr.row - 1, col: curr.col, direction: NORTH },
-      [SOUTH]: { row: curr.row + 1, col: curr.col, direction: SOUTH },
-    };
-
-    const turnDirections: Record<string, string> = {
-      [EAST]: `${NORTH},${SOUTH}`,
-      [WEST]: `${NORTH},${SOUTH}`,
-      [NORTH]: `${EAST},${WEST}`,
-      [SOUTH]: `${EAST},${WEST}`,
-    };
-
-    // move forward
-    const neighbor = moveForward[curr.direction];
-    this.isPath(map[neighbor.row][neighbor.col]) &&
-      arr.push({ ...neighbor, cost: 1, visited: this.hasVisited(neighbor) });
-
-    // turns
-    const turns = turnDirections[curr.direction];
-    turns.split(',').forEach((direction) => {
-      const location = moveForward[direction];
-      this.isPath(map[location.row][location.col]) &&
-        !this.hasVisited(location) &&
-        arr.push({
-          ...curr,
-          direction,
-          cost: 1000,
-          visited: this.hasVisited(neighbor),
-        });
-    });
-    return arr;
-  }
-
-  hasVisited(curr: { row: number; col: number; direction: string }) {
-    return this.visited.has(this.formatLoc(curr));
-  }
-
-  findType(map: any[][], type: string): { row: number; col: number } | null {
-    for (let row = 0; row < map.length; row++) {
-      for (let col = 0; col < map[row].length; col++) {
-        if (map[row][col] === type) {
-          return { row, col };
         }
+        count += 2;
       }
+    }
+
+    return output.join(',');
+  }
+
+  callOpcode(
+    opcode: string,
+    register: Register,
+    operand: string
+  ): InstructionResult {
+    switch (opcode) {
+      case 'ADV':
+        return this.doADV(register, operand);
+      case 'BXL':
+        return this.doBXL(register, operand);
+      case 'BST':
+        return this.doBST(register, operand);
+      case 'JNZ':
+        return this.doJNZ(register, operand);
+      case 'BXC':
+        return this.doBXC(register, operand);
+      case 'OUT':
+        return this.doOUT(register, operand);
+      case 'BDV':
+        return this.doBDV(register, operand);
+      case 'CDV':
+        return this.doCDV(register, operand);
     }
     return null;
   }
 
-  isPath(str: string): boolean {
-    return str === PATH || str === END;
+  /**
+   * The adv instruction (opcode 0) performs division.
+   * The numerator is the value in the A register.
+   * The denominator is found by raising 2 to the power of the instruction's combo operand.
+   * The result of the division operation is truncated to an integer and then
+   * written to the A register.
+   * @param register
+   */
+  doADV(register: Register, operand: string): InstructionResult {
+    const comboOperand = COMBO_OPERAND[operand];
+    const denominator = Number.isInteger(Number(comboOperand))
+      ? Number(comboOperand)
+      : Number((register as Record<string, any>)[comboOperand]);
+
+    const result = Math.trunc(
+      Number(register[REGISTER_A]) / 2 ** Number(denominator)
+    );
+    return {
+      [REGISTER_A]: `${result}`,
+    };
   }
 
-  formatLoc(curr: { row: number; col: number; direction: string }) {
-    return [curr.row, curr.col, curr.direction].filter(Boolean).join('-');
+  /**
+   * The bxl instruction (opcode 1) calculates the bitwise XOR of
+   * register B and the instruction's literal operand,
+   * then stores the result in register B.
+   * @param register
+   * @param operand
+   */
+  doBXL(register: Register, operand: string): InstructionResult {
+    const result = Number(register[REGISTER_B]) ^ Number(operand);
+    return {
+      [REGISTER_B]: `${result}`,
+    };
+  }
+
+  /**
+   * The bst instruction (opcode 2) calculates the value of its combo operand modulo 8
+   * then writes that value to the B register.
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doBST(register: Register, operand: string): InstructionResult {
+    const comboOperand = COMBO_OPERAND[operand];
+    const dividend = Number.isInteger(Number(comboOperand))
+      ? Number(comboOperand)
+      : Number((register as Record<string, any>)[comboOperand]);
+
+    const result = dividend % 8;
+    return {
+      [REGISTER_B]: `${result}`,
+    };
+  }
+
+  /**
+   * The jnz instruction (opcode 3) does nothing if the A register is 0.
+   * However, if the A register is not zero, it jumps by setting the instruction
+   * pointer to the value of its literal operand; if this instruction jumps,
+   * the instruction pointer is not increased by 2 after this instruction.
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doJNZ(register: Register, operand: string): InstructionResult {
+    if (!Number(register[REGISTER_A])) {
+      return null;
+    }
+    return {
+      jumpTo: Number(operand),
+    };
+  }
+
+  /**
+   * The bxc instruction (opcode 4) calculates the bitwise XOR of register B and register C,
+   * then stores the result in register B.
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doBXC(register: Register, operand: string): InstructionResult {
+    const result = Number(register[REGISTER_B]) ^ Number(register[REGISTER_C]);
+    return {
+      [REGISTER_B]: `${result}`,
+    };
+  }
+
+  /**
+   * The out instruction (opcode 5) calculates the value of its combo operand modulo 8,
+   * then outputs that value. (If a program outputs multiple values,
+   * they are separated by commas.)
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doOUT(register: Register, operand: string): InstructionResult {
+    const comboOperand = COMBO_OPERAND[operand];
+    const dividend = Number.isInteger(Number(comboOperand))
+      ? Number(comboOperand)
+      : Number((register as Record<string, any>)[comboOperand]);
+    const result = dividend % 8;
+    return {
+      [OUTPUT]: [`${result}`],
+    };
+  }
+
+  /**
+   * The bdv instruction (opcode 6) works exactly like the adv instruction
+   * except that the result is stored in the B register.
+   * (The numerator is still read from the A register.)
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doBDV(register: Register, operand: string): InstructionResult {
+    const comboOperand = COMBO_OPERAND[operand];
+    const denominator = Number.isInteger(Number(comboOperand))
+      ? Number(comboOperand)
+      : Number((register as Record<string, any>)[comboOperand]);
+
+    const result = Math.trunc(
+      Number(register[REGISTER_A]) / 2 ** Number(denominator)
+    );
+    return {
+      [REGISTER_B]: `${result}`,
+    };
+  }
+
+  /**
+   * The cdv instruction (opcode 7) works exactly like the adv instruction
+   * except that the result is stored in the C register.
+   * (The numerator is still read from the A register.)
+   * @param register
+   * @param operand
+   * @returns
+   */
+  doCDV(register: Register, operand: string): InstructionResult {
+    const comboOperand = COMBO_OPERAND[operand];
+    const denominator = Number.isInteger(Number(comboOperand))
+      ? Number(comboOperand)
+      : Number((register as Record<string, any>)[comboOperand]);
+
+    const result = Math.trunc(
+      Number(register[REGISTER_A]) / 2 ** Number(denominator)
+    );
+    return {
+      [REGISTER_C]: `${result}`,
+    };
+  }
+
+  parseInput(input: string[]): {
+    registerA: string;
+    registerB: string;
+    registerC: string;
+    program: string;
+  } {
+    const arr: any[] = [];
+
+    const registerA = this.parseValue(input[0], 'Register A: ');
+    const registerB = this.parseValue(input[1], 'Register B: ');
+    const registerC = this.parseValue(input[2], 'Register C: ');
+
+    const program = this.parseValue(input[4], 'Program: ');
+
+    return { registerA, registerB, registerC, program };
+  }
+
+  parseValue(str: string, label: string): string {
+    const idx = str.lastIndexOf(label);
+    return idx != -1
+      ? str.substring(
+          idx + label.length,
+          this.findFirstEmptyIdx(str, idx + label.length)
+        )
+      : '';
+  }
+
+  findFirstEmptyIdx(str: string, start: number): number {
+    let count = start;
+
+    while (str.charAt(count).trim() && count < str.length) {
+      const s = str.charAt(count);
+      count++;
+    }
+
+    return count;
   }
 
   parseRow(data: any): any[] {
