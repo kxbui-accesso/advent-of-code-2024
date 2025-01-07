@@ -10,6 +10,8 @@ const FIRST_NUM_BYTES = 12;
 const SAFE = '.';
 const CORRUPTED = '#';
 
+// 15,6
+
 /**
  * Implement Breadth First Search to
  * find the shortest path
@@ -49,7 +51,6 @@ export class AppComponent {
 2,0`;
 
   result = signal('');
-  foundNumbers: any[] = [];
 
   onSubmit() {
     this.result.set(`...waiting`);
@@ -61,26 +62,20 @@ export class AppComponent {
     }, 0);
   }
 
-  start(input: any[]): number {
-    const map = this.generateMap(input);
+  start(input: any[]): string {
+    let map = this.generateMap(input, FIRST_NUM_BYTES);
     const nodes = this.search(map);
     if (nodes) {
-      return this.countSteps(nodes);
+      for (let i = FIRST_NUM_BYTES; i < input.length; i++) {
+        const [col, row] = input[i].split(',');
+        this.addToMap(map, { row, col }, CORRUPTED);
+        const tempNode = this.search(map);
+        if (!tempNode) {
+          return input[i];
+        }
+      }
     }
-    return 0;
-  }
-
-  countSteps(node: { parent: any; row: number; col: number }): number {
-    const path = new Set<string>();
-    let count = 0;
-    let curr = node;
-
-    while (curr) {
-      count++;
-      path.add(this.formatLoc(curr));
-      curr = curr.parent;
-    }
-    return count - 1; // remove first node
+    return "can't find";
   }
 
   search(map: any[][]): { row: number; col: number; parent: any } | null {
@@ -109,6 +104,10 @@ export class AppComponent {
     }
 
     return null;
+  }
+
+  addToMap(map: any[][], node: { row: number; col: number }, type: string) {
+    map[node.row][node.col] = type;
   }
 
   findPaths(map: any[][], curr: { row: number; col: number }): any[] {
@@ -142,9 +141,9 @@ export class AppComponent {
     return [currPos.row, currPos.col].join('-');
   }
 
-  generateMap(input: any[]): any[][] {
+  generateMap(input: any[], firstNumBytes: number): any[][] {
     const arr = Array.from({ length: LENGTH }, () => Array(LENGTH).fill(SAFE));
-    input.slice(0, FIRST_NUM_BYTES).forEach((line) => {
+    input.slice(0, firstNumBytes).forEach((line) => {
       const [col, row] = line.split(',');
       arr[row][col] = CORRUPTED;
     });
