@@ -10,8 +10,6 @@ const FIRST_NUM_BYTES = 12;
 const SAFE = '.';
 const CORRUPTED = '#';
 
-// 15,6
-
 /**
  * Implement Breadth First Search to
  * find the shortest path
