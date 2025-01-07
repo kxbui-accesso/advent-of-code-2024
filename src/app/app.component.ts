@@ -1,21 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-// const LENGTH = 71;
-// const FIRST_NUM_BYTES = 1024;
-
-const LENGTH = 7;
-const FIRST_NUM_BYTES = 12;
-
-const SAFE = '.';
-const CORRUPTED = '#';
-
-// 15,6
-
-/**
- * Implement Breadth First Search to
- * find the shortest path
- */
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -24,31 +9,16 @@ const CORRUPTED = '#';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `5,4
-4,2
-4,5
-3,0
-2,1
-6,3
-2,4
-1,5
-0,6
-3,3
-2,6
-5,1
-1,2
-5,5
-2,5
-6,5
-1,4
-0,4
-6,4
-1,1
-6,1
-1,0
-0,5
-1,6
-2,0`;
+  input = `r, wr, b, g, bwu, rb, gb, br
+
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb`;
 
   result = signal('');
 
@@ -56,98 +26,45 @@ export class AppComponent {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const input = this.parseRow(this.input);
+      const input = this.parseInput(this.parseRow(this.input));
       const total = this.start(input);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(input: any[]): string {
-    let map = this.generateMap(input, FIRST_NUM_BYTES);
-    const nodes = this.search(map);
-    if (nodes) {
-      for (let i = FIRST_NUM_BYTES; i < input.length; i++) {
-        const [col, row] = input[i].split(',');
-        this.addToMap(map, { row, col }, CORRUPTED);
-        const tempNode = this.search(map);
-        if (!tempNode) {
-          return input[i];
-        }
-      }
-    }
-    return "can't find";
-  }
-
-  search(map: any[][]): { row: number; col: number; parent: any } | null {
-    const visited = new Set();
-    const queue: any[] = [];
-    const start = { row: 0, col: 0 };
-
-    visited.add(this.formatLoc(start));
-    queue.push(start);
-
-    while (queue.length) {
-      const s = queue.shift();
-      if (s) {
-        if (this.isGoal(s)) {
-          return s;
-        }
-        const paths = this.findPaths(map, s);
-        paths
-          .filter((path) => !visited.has(this.formatLoc(path)))
-          .forEach((path) => {
-            const node = { ...path, parent: s };
-            visited.add(this.formatLoc(path));
-            queue.push(node);
-          });
-      }
-    }
-
-    return null;
-  }
-
-  addToMap(map: any[][], node: { row: number; col: number }, type: string) {
-    map[node.row][node.col] = type;
-  }
-
-  findPaths(map: any[][], curr: { row: number; col: number }): any[] {
-    let node = null;
-    const arr: any[] = [];
-
-    node = { row: curr.row - 1, col: curr.col };
-    if (node.row >= 0 && !this.isCorrupted(map, node)) arr.push(node);
-
-    node = { row: curr.row + 1, col: curr.col };
-    if (node.row < LENGTH && !this.isCorrupted(map, node)) arr.push(node);
-
-    node = { row: curr.row, col: curr.col - 1 };
-    if (node.col >= 0 && !this.isCorrupted(map, node)) arr.push(node);
-
-    node = { row: curr.row, col: curr.col + 1 };
-    if (node.col < LENGTH && !this.isCorrupted(map, node)) arr.push(node);
-
-    return arr;
-  }
-
-  isCorrupted(map: any[][], curr: { row: number; col: number }): boolean {
-    return map[curr.row][curr.col] === CORRUPTED;
-  }
-
-  isGoal(curr: { row: number; col: number }): boolean {
-    return curr.row === LENGTH - 1 && curr.col === LENGTH - 1;
-  }
-
-  formatLoc(currPos: { row: number; col: number }) {
-    return [currPos.row, currPos.col].join('-');
-  }
-
-  generateMap(input: any[], firstNumBytes: number): any[][] {
-    const arr = Array.from({ length: LENGTH }, () => Array(LENGTH).fill(SAFE));
-    input.slice(0, firstNumBytes).forEach((line) => {
-      const [col, row] = line.split(',');
-      arr[row][col] = CORRUPTED;
+  start(input: { patterns: string[]; desgins: string[] }): number {
+    let count = 0;
+    input.desgins.forEach((design) => {
+      this.checkPattern(input.patterns, design) && count++;
     });
-    return arr;
+    return count;
+  }
+
+  checkPattern(patterns: string[], design: string): boolean {
+    if (!design.trim()) return true;
+
+    const matchedPatterns = patterns.filter((pattern) =>
+      design.startsWith(pattern)
+    );
+    if (!matchedPatterns.length) {
+      return false;
+    }
+
+    for (let i = 0; i < matchedPatterns.length; i++) {
+      const subStr = design.substring(matchedPatterns[i].length);
+      if (this.checkPattern(patterns, subStr)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  parseInput(input: string[]) {
+    return {
+      patterns: input[0].split(',').map((item) => item.trim()),
+      desgins: input.slice(2),
+    };
   }
 
   parseRow(data: any): any[] {
