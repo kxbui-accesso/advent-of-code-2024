@@ -21,43 +21,59 @@ brgr
 bbrgwb`;
 
   result = signal('');
+  patternMap = new Map<string, number>();
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
+      this.patternMap.clear();
       const input = this.parseInput(this.parseRow(this.input));
       const total = this.start(input);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(input: { patterns: string[]; desgins: string[] }): number {
-    let count = 0;
+  start(input: { patterns: string[]; desgins: string[] }): bigint {
+    let count = BigInt(0);
     input.desgins.forEach((design) => {
-      this.checkPattern(input.patterns, design) && count++;
+      count += BigInt(this.countPattern(input.patterns, design, 0, 0));
     });
     return count;
   }
 
-  checkPattern(patterns: string[], design: string): boolean {
-    if (!design.trim()) return true;
+  countPattern(patterns: string[], design: string, total: number, startingIdx: number): number {
+    const designSubStr = design.substring(startingIdx);
+    if (!designSubStr.trim()) return 1;
 
-    const matchedPatterns = patterns.filter((pattern) =>
-      design.startsWith(pattern)
-    );
+    if (this.patternMap.has(designSubStr)) {
+      return this.patternMap.get(designSubStr)!;
+    }
+
+    const matchedPatterns = patterns.filter(pattern => designSubStr.startsWith(pattern));
+
     if (!matchedPatterns.length) {
-      return false;
+      return 0;
     }
 
+    let count = total;
     for (let i = 0; i < matchedPatterns.length; i++) {
-      const subStr = design.substring(matchedPatterns[i].length);
-      if (this.checkPattern(patterns, subStr)) {
-        return true;
-      }
+      const matchedPattern = matchedPatterns[i];
+      const idx = startingIdx + matchedPattern.length;
+
+      const result = this.countPattern(patterns, design, total, idx);
+      count += result;
     }
 
-    return false;
+    if (!this.patternMap.has(designSubStr)) {
+      this.patternMap.set(designSubStr, count);
+    }
+
+    return count;
+  }
+
+  exactlyMatch(str: string, compareTo: string): boolean {
+    return str === compareTo;
   }
 
   parseInput(input: string[]) {

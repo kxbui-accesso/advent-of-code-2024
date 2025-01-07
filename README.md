@@ -1,90 +1,73 @@
---- Day 18: RAM Run ---
-You and The Historians look a lot more pixelated than you remember. You're inside a computer at the North Pole!
+--- Day 19: Linen Layout ---
+Today, The Historians take you up to the hot springs on Gear Island! Very suspiciously, absolutely nothing goes wrong as they begin their careful search of the vast field of helixes.
 
-Just as you're about to check out your surroundings, a program runs up to you. "This region of memory isn't safe! The User misunderstood what a pushdown automaton is and their algorithm is pushing whole bytes down on top of us! Run!"
+Could this finally be your chance to visit the onsen next door? Only one way to find out.
 
-The algorithm is fast - it's going to cause a byte to fall into your memory space once every nanosecond! Fortunately, you're faster, and by quickly scanning the algorithm, you create a list of which bytes will fall (your puzzle input) in the order they'll land in your memory space.
+After a brief conversation with the reception staff at the onsen front desk, you discover that you don't have the right kind of money to pay the admission fee. However, before you can leave, the staff get your attention. Apparently, they've heard about how you helped at the hot springs, and they're willing to make a deal: if you can simply help them arrange their towels, they'll let you in for free!
 
-Your memory space is a two-dimensional grid with coordinates that range from 0 to 70 both horizontally and vertically. However, for the sake of example, suppose you're on a smaller grid with coordinates that range from 0 to 6 and the following list of incoming byte positions:
+Every towel at this onsen is marked with a pattern of colored stripes. There are only a few patterns, but for any particular pattern, the staff can get you as many towels with that pattern as you need. Each stripe can be white (w), blue (u), black (b), red (r), or green (g). So, a towel with the pattern ggr would have a green stripe, a green stripe, and then a red stripe, in that order. (You can't reverse a pattern by flipping a towel upside-down, as that would cause the onsen logo to face the wrong way.)
 
-5,4
-4,2
-4,5
-3,0
-2,1
-6,3
-2,4
-1,5
-0,6
-3,3
-2,6
-5,1
-1,2
-5,5
-2,5
-6,5
-1,4
-0,4
-6,4
-1,1
-6,1
-1,0
-0,5
-1,6
-2,0
-Each byte position is given as an X,Y coordinate, where X is the distance from the left edge of your memory space and Y is the distance from the top edge of your memory space.
+The Official Onsen Branding Expert has produced a list of designs - each a long sequence of stripe colors - that they would like to be able to display. You can use any towels you want, but all of the towels' stripes must exactly match the desired design. So, to display the design rgrgr, you could use two rg towels and then an r towel, an rgr towel and then a gr towel, or even a single massive rgrgr towel (assuming such towel patterns were actually available).
 
-You and The Historians are currently in the top left corner of the memory space (at 0,0) and need to reach the exit in the bottom right corner (at 70,70 in your memory space, but at 6,6 in this example). You'll need to simulate the falling bytes to plan out where it will be safe to run; for now, simulate just the first few bytes falling into your memory space.
+To start, collect together all of the available towel patterns and the list of desired designs (your puzzle input). For example:
 
-As bytes fall into your memory space, they make that coordinate corrupted. Corrupted memory coordinates cannot be entered by you or The Historians, so you'll need to plan your route carefully. You also cannot leave the boundaries of the memory space; your only hope is to reach the exit.
+r, wr, b, g, bwu, rb, gb, br
 
-In the above example, if you were to draw the memory space after the first 12 bytes have fallen (using . for safe and # for corrupted), it would look like this:
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb
+The first line indicates the available towel patterns; in this example, the onsen has unlimited towels with a single red stripe (r), unlimited towels with a white stripe and then a red stripe (wr), and so on.
 
-...#...
-..#..#.
-....#..
-...#..#
-..#..#.
-.#..#..
-#.#....
-You can take steps up, down, left, or right. After just 12 bytes have corrupted locations in your memory space, the shortest path from the top left corner to the exit would take 22 steps. Here (marked with O) is one such path:
+After the blank line, the remaining lines each describe a design the onsen would like to be able to display. In this example, the first design (brwrr) indicates that the onsen would like to be able to display a black stripe, a red stripe, a white stripe, and then two red stripes, in that order.
 
-OO.#OOO
-.O#OO#O
-.OOO#OO
-...#OO#
-..#OO#.
-.#.O#..
-#.#OOOO
-Simulate the first kilobyte (1024 bytes) falling onto your memory space. Afterward, what is the minimum number of steps needed to reach the exit?
+Not all designs will be possible with the available towels. In the above example, the designs are possible or impossible as follows:
 
-Your puzzle answer was 344.
+brwrr can be made with a br towel, then a wr towel, and then finally an r towel.
+bggr can be made with a b towel, two g towels, and then an r towel.
+gbbr can be made with a gb towel and then a br towel.
+rrbgbr can be made with r, rb, g, and br.
+ubwu is impossible.
+bwurrg can be made with bwu, r, r, and g.
+brgr can be made with br, g, and r.
+bbrgwb is impossible.
+In this example, 6 of the eight designs are possible with the available towel patterns.
 
-The first half of this puzzle is complete! It provides one gold star: *
+To get into the onsen as soon as possible, consult your list of towel patterns and desired designs carefully. How many designs are possible?
 
 --- Part Two ---
-The Historians aren't as used to moving around in this pixelated universe as you are. You're afraid they're not going to be fast enough to make it to the exit before the path is completely blocked.
+The staff don't really like some of the towel arrangements you came up with. To avoid an endless cycle of towel rearrangement, maybe you should just give them every possible option.
 
-To determine how fast everyone needs to go, you need to determine the first byte that will cut off the path to the exit.
+Here are all of the different ways the above example's designs can be made:
 
-In the above example, after the byte at 1,1 falls, there is still a path to the exit:
+brwrr can be made in two different ways: b, r, wr, r or br, wr, r.
 
-O..#OOO
-O##OO#O
-O#OO#OO
-OOO#OO#
-###OO##
-.##O###
-#.#OOOO
-However, after adding the very next byte (at 6,1), there is no longer a path to the exit:
+bggr can only be made with b, g, g, and r.
 
-...#...
-.##..##
-.#..#..
-...#..#
-###..##
-.##.###
-#.#....
-So, in this example, the coordinates of the first byte that prevents the exit from being reachable are 6,1.
+gbbr can be made 4 different ways:
 
-Simulate more of the bytes that are about to corrupt your memory space. What are the coordinates of the first byte that will prevent the exit from being reachable from your starting position? (Provide the answer as two integers separated by a comma with no other characters.)
+g, b, b, r
+g, b, br
+gb, b, r
+gb, br
+rrbgbr can be made 6 different ways:
+
+r, r, b, g, b, r
+r, r, b, g, br
+r, r, b, gb, r
+r, rb, g, b, r
+r, rb, g, br
+r, rb, gb, r
+bwurrg can only be made with bwu, r, r, and g.
+
+brgr can be made in two different ways: b, r, g, r or br, g, r.
+
+ubwu and bbrgwb are still impossible.
+
+Adding up all of the ways the towels in this example could be arranged into the desired designs yields 16 (2 + 1 + 4 + 6 + 1 + 2).
+
+They'll let you into the onsen as soon as you have the list. What do you get if you add up the number of different ways you could make each design?
