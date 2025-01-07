@@ -43,6 +43,10 @@ interface Result {
 
 type InstructionResult = Result | null;
 
+/**
+ * Since value of register A impacts the result,
+ * find which opcode affecting register A and its operand
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -51,13 +55,14 @@ type InstructionResult = Result | null;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-    input = `Register A: 729
-  Register B: 0
-  Register C: 0
+  input = `Register A: 2024
+Register B: 0
+Register C: 0
 
-  Program: 0,1,5,4,3,0`;
+Program: 0,3,5,4,3,0`;
 
   result = signal('');
+  foundNumbers: any[] = [];
 
   onSubmit() {
     this.result.set(`...waiting`);
@@ -75,6 +80,61 @@ export class AppComponent {
     registerC: string;
     program: string;
   }): string {
+    this.foundNumbers.length = 0;
+    return this.findA({ ...input, registerA: String(0) }, 0)
+      ? this.foundNumbers.pop()
+      : 'No Value';
+  }
+
+  /**
+   * Recursively find value of register A by generating values
+   * from 0 to 7 (mod 8).
+   * @param input
+   * @returns
+   */
+  findA(
+    input: {
+      registerA: string;
+      registerB: string;
+      registerC: string;
+      program: string;
+    },
+    n: number
+  ): string | null {
+    const result = this.runProgram(input);
+    const programLength = input.program.split(',').length;
+    if (n > programLength) return null;
+    if (this.isSameString(result.join(','), input.program)) {
+      this.foundNumbers.push(input.registerA);
+      return input.registerA;
+    }
+    if (this.isSameSubstring(result, input.program.split(','), n) || n === 0) {
+      for (let i = 0; i < 8; ++i) {
+        const a = `${8 * Number(input.registerA) + i}`;
+        if (this.findA({ ...input, registerA: a }, n + 1)) {
+          return input.registerA;
+        }
+      }
+    }
+    return null;
+  }
+
+  isSameString(a: string, b: string): boolean {
+    return a === b;
+  }
+
+  isSameSubstring(a: string[], b: string[], lastNum: number): boolean {
+    const arr1 = lastNum ? a.slice(a.length - lastNum) : a;
+    const arr2 = lastNum ? b.slice(b.length - lastNum) : b;
+    return arr1.join(',') === arr2.join(',');
+  }
+
+  runProgram(input: {
+    registerA: string;
+    registerB: string;
+    registerC: string;
+    program: string;
+  }): string[] {
     const program = input.program.split(',');
     let registers = {
       [REGISTER_A]: input.registerA,
@@ -106,8 +166,7 @@ export class AppComponent {
         count += 2;
       }
     }
-
-    return output.join(',');
+    return output;
   }
 
   callOpcode(
@@ -166,7 +225,7 @@ export class AppComponent {
    * @param operand
    */
   doBXL(register: Register, operand: string): InstructionResult {
-    const result = Number(register[REGISTER_B]) ^ Number(operand);
+    const result = Number(BigInt(register[REGISTER_B]) ^ BigInt(operand));
     return {
       [REGISTER_B]: `${result}`,
     };
@@ -217,7 +276,7 @@ export class AppComponent {
    * @returns
    */
   doBXC(register: Register, operand: string): InstructionResult {
-    const result = Number(register[REGISTER_B]) ^ Number(register[REGISTER_C]);
+    const result = Number(BigInt(register[REGISTER_B]) ^ BigInt(register[REGISTER_C]));
     return {
       [REGISTER_B]: `${result}`,
     };
