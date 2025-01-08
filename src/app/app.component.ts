@@ -53,7 +53,7 @@ export class AppComponent {
     let visited = new Set();
 
     orgPath.forEach((node, i) => {
-      this.disableCollision(map, node).forEach((newNode) => {
+      this.findCheats(map, node).forEach((newNode) => {
         if (!visited.has(this.formatLoc(newNode))) {
           const idx = orgPath.findIndex((n) => this.isSameNode(n, newNode));
           const timeSaved = idx - i - 2;
@@ -96,7 +96,7 @@ export class AppComponent {
     return null;
   }
 
-  disableCollision(map: any[][], curr: { row: number; col: number }): any[] {
+  findCheats(map: any[][], curr: { row: number; col: number }): any[] {
     let node1 = null,
       node2 = null;
     const arr = [];
