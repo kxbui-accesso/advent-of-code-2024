@@ -1,73 +1,173 @@
---- Day 19: Linen Layout ---
-Today, The Historians take you up to the hot springs on Gear Island! Very suspiciously, absolutely nothing goes wrong as they begin their careful search of the vast field of helixes.
+--- Day 20: Race Condition ---
+The Historians are quite pixelated again. This time, a massive, black building looms over you - you're right outside the CPU!
 
-Could this finally be your chance to visit the onsen next door? Only one way to find out.
+While The Historians get to work, a nearby program sees that you're idle and challenges you to a race. Apparently, you've arrived just in time for the frequently-held race condition festival!
 
-After a brief conversation with the reception staff at the onsen front desk, you discover that you don't have the right kind of money to pay the admission fee. However, before you can leave, the staff get your attention. Apparently, they've heard about how you helped at the hot springs, and they're willing to make a deal: if you can simply help them arrange their towels, they'll let you in for free!
+The race takes place on a particularly long and twisting code path; programs compete to see who can finish in the fewest picoseconds. The winner even gets their very own mutex!
 
-Every towel at this onsen is marked with a pattern of colored stripes. There are only a few patterns, but for any particular pattern, the staff can get you as many towels with that pattern as you need. Each stripe can be white (w), blue (u), black (b), red (r), or green (g). So, a towel with the pattern ggr would have a green stripe, a green stripe, and then a red stripe, in that order. (You can't reverse a pattern by flipping a towel upside-down, as that would cause the onsen logo to face the wrong way.)
+They hand you a map of the racetrack (your puzzle input). For example:
 
-The Official Onsen Branding Expert has produced a list of designs - each a long sequence of stripe colors - that they would like to be able to display. You can use any towels you want, but all of the towels' stripes must exactly match the desired design. So, to display the design rgrgr, you could use two rg towels and then an r towel, an rgr towel and then a gr towel, or even a single massive rgrgr towel (assuming such towel patterns were actually available).
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+The map consists of track (.) - including the start (S) and end (E) positions (both of which also count as track) - and walls (#).
 
-To start, collect together all of the available towel patterns and the list of desired designs (your puzzle input). For example:
+When a program runs through the racetrack, it starts at the start position. Then, it is allowed to move up, down, left, or right; each such move takes 1 picosecond. The goal is to reach the end position as quickly as possible. In this example racetrack, the fastest time is 84 picoseconds.
 
-r, wr, b, g, bwu, rb, gb, br
+Because there is only a single path from the start to the end and the programs all go the same speed, the races used to be pretty boring. To make things more interesting, they introduced a new rule to the races: programs are allowed to cheat.
 
-brwrr
-bggr
-gbbr
-rrbgbr
-ubwu
-bwurrg
-brgr
-bbrgwb
-The first line indicates the available towel patterns; in this example, the onsen has unlimited towels with a single red stripe (r), unlimited towels with a white stripe and then a red stripe (wr), and so on.
+The rules for cheating are very strict. Exactly once during a race, a program may disable collision for up to 2 picoseconds. This allows the program to pass through walls as if they were regular track. At the end of the cheat, the program must be back on normal track again; otherwise, it will receive a segmentation fault and get disqualified.
 
-After the blank line, the remaining lines each describe a design the onsen would like to be able to display. In this example, the first design (brwrr) indicates that the onsen would like to be able to display a black stripe, a red stripe, a white stripe, and then two red stripes, in that order.
+So, a program could complete the course in 72 picoseconds (saving 12 picoseconds) by cheating for the two moves marked 1 and 2:
 
-Not all designs will be possible with the available towels. In the above example, the designs are possible or impossible as follows:
+###############
+#...#...12....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+Or, a program could complete the course in 64 picoseconds (saving 20 picoseconds) by cheating for the two moves marked 1 and 2:
 
-brwrr can be made with a br towel, then a wr towel, and then finally an r towel.
-bggr can be made with a b towel, two g towels, and then an r towel.
-gbbr can be made with a gb towel and then a br towel.
-rrbgbr can be made with r, rb, g, and br.
-ubwu is impossible.
-bwurrg can be made with bwu, r, r, and g.
-brgr can be made with br, g, and r.
-bbrgwb is impossible.
-In this example, 6 of the eight designs are possible with the available towel patterns.
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...12..#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+This cheat saves 38 picoseconds:
 
-To get into the onsen as soon as possible, consult your list of towel patterns and desired designs carefully. How many designs are possible?
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.####1##.###
+#...###.2.#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+This cheat saves 64 picoseconds and takes the program directly to the end:
+
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..21...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+Each cheat has a distinct start position (the position where the cheat is activated, just before the first move that is allowed to go through walls) and end position; cheats are uniquely identified by their start position and end position.
+
+In this example, the total number of cheats (grouped by the amount of time they save) are as follows:
+
+There are 14 cheats that save 2 picoseconds.
+There are 14 cheats that save 4 picoseconds.
+There are 2 cheats that save 6 picoseconds.
+There are 4 cheats that save 8 picoseconds.
+There are 2 cheats that save 10 picoseconds.
+There are 3 cheats that save 12 picoseconds.
+There is one cheat that saves 20 picoseconds.
+There is one cheat that saves 36 picoseconds.
+There is one cheat that saves 38 picoseconds.
+There is one cheat that saves 40 picoseconds.
+There is one cheat that saves 64 picoseconds.
+You aren't sure what the conditions of the racetrack will be like, so to give yourself as many options as possible, you'll need a list of the best cheats. How many cheats would save you at least 100 picoseconds?
 
 --- Part Two ---
-The staff don't really like some of the towel arrangements you came up with. To avoid an endless cycle of towel rearrangement, maybe you should just give them every possible option.
+The programs seem perplexed by your list of cheats. Apparently, the two-picosecond cheating rule was deprecated several milliseconds ago! The latest version of the cheating rule permits a single cheat that instead lasts at most 20 picoseconds.
 
-Here are all of the different ways the above example's designs can be made:
+Now, in addition to all the cheats that were possible in just two picoseconds, many more cheats are possible. This six-picosecond cheat saves 76 picoseconds:
 
-brwrr can be made in two different ways: b, r, wr, r or br, wr, r.
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#1#####.#.#.###
+#2#####.#.#...#
+#3#####.#.###.#
+#456.E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+Because this cheat has the same start and end positions as the one above, it's the same cheat, even though the path taken during the cheat is different:
 
-bggr can only be made with b, g, g, and r.
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S12..#.#.#...#
+###3###.#.#.###
+###4###.#.#...#
+###5###.#.###.#
+###6.E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+Cheats don't need to use all 20 picoseconds; cheats can last any amount of time up to and including 20 picoseconds (but can still only end when the program is on normal track). Any cheat time not used is lost; it can't be saved for another cheat later.
 
-gbbr can be made 4 different ways:
+You'll still need a list of the best cheats, but now there are even more to choose between. Here are the quantities of cheats in this example that save 50 picoseconds or more:
 
-g, b, b, r
-g, b, br
-gb, b, r
-gb, br
-rrbgbr can be made 6 different ways:
-
-r, r, b, g, b, r
-r, r, b, g, br
-r, r, b, gb, r
-r, rb, g, b, r
-r, rb, g, br
-r, rb, gb, r
-bwurrg can only be made with bwu, r, r, and g.
-
-brgr can be made in two different ways: b, r, g, r or br, g, r.
-
-ubwu and bbrgwb are still impossible.
-
-Adding up all of the ways the towels in this example could be arranged into the desired designs yields 16 (2 + 1 + 4 + 6 + 1 + 2).
-
-They'll let you into the onsen as soon as you have the list. What do you get if you add up the number of different ways you could make each design?
+There are 32 cheats that save 50 picoseconds.
+There are 31 cheats that save 52 picoseconds.
+There are 29 cheats that save 54 picoseconds.
+There are 39 cheats that save 56 picoseconds.
+There are 25 cheats that save 58 picoseconds.
+There are 23 cheats that save 60 picoseconds.
+There are 20 cheats that save 62 picoseconds.
+There are 19 cheats that save 64 picoseconds.
+There are 12 cheats that save 66 picoseconds.
+There are 14 cheats that save 68 picoseconds.
+There are 12 cheats that save 70 picoseconds.
+There are 22 cheats that save 72 picoseconds.
+There are 4 cheats that save 74 picoseconds.
+There are 3 cheats that save 76 picoseconds.
+Find the best cheats using the updated cheating rules. How many cheats would save you at least 100 picoseconds?

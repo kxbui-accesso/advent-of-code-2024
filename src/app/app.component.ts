@@ -1,12 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const TIME_SAVED_THRESHOLD = 100;
+const TIME_SAVED_THRESHOLD = 50;
 
 const WALL = '#';
 const SAFE = '.';
 const START = 'S';
 const END = 'E';
+const MAX_CHEAT = 20;
 
 /**
  * Implement Breadth First Search
@@ -48,23 +49,8 @@ export class AppComponent {
   }
 
   start(map: any[][]): number {
-    const orgPath = this.reconstructPath(this.search(map));
-    let count = 0;
-    let visited = new Set();
-
-    orgPath.forEach((node, i) => {
-      this.findCheats(map, node).forEach((newNode) => {
-        if (!visited.has(this.formatLoc(newNode))) {
-          const idx = orgPath.findIndex((n) => this.isSameNode(n, newNode));
-          const timeSaved = idx - i - 2;
-          if (timeSaved >= TIME_SAVED_THRESHOLD) {
-            count++;
-          }
-        }
-        visited.add(this.formatLoc(node));
-      });
-    });
-    return count;
+    const pathMap = this.reconstructPath(this.search(map));
+    return this.findCheats(pathMap);
   }
 
   search(map: any[][]): { row: number; col: number; parent: any } | null {
@@ -96,28 +82,52 @@ export class AppComponent {
     return null;
   }
 
-  findCheats(map: any[][], curr: { row: number; col: number }): any[] {
-    let node1 = null,
-      node2 = null;
-    const arr = [];
+  /**
+   * HINT: During the execution of a cheat,
+   * the program can enter and leave walls multiple times,
+   * as long as the cheat ends in normal track, within the maximal allowed cheat time
+   * of 20 picoseconds.
+   * @param map
+   * @param startNode
+   * @returns
+   */
+  findCheats(pathMap: Map<string, number>): number {
+    let total = 0;
+    const arr = Array.from(pathMap.keys());
 
-    node1 = { ...curr, row: curr.row - 1 };
-    node2 = { ...curr, row: curr.row - 2 };
-    if (this.canPassThrWall(map, node1, node2)) arr.push(node2);
+    for (let x = 0; x < arr.length - 1; x++) {
+      for (let y = x + 1; y < arr.length; y++) {
+        const [startRow, startCol] = arr[x].split('-');
+        const [endRow, endCol] = arr[y].split('-');
+        const count = this.calcDistance(
+          { row: Number(startRow), col: Number(startCol) },
+          { row: Number(endRow), col: Number(endCol) }
+        );
+        if (count) {
+          const timeSaved = y - x - count;
+          if (timeSaved === TIME_SAVED_THRESHOLD) {
+            total++;
+          }
+        }
+      }
+    }
+    return total;
+  }
 
-    node1 = { ...curr, row: curr.row + 1 };
-    node2 = { ...curr, row: curr.row + 2 };
-    if (this.canPassThrWall(map, node1, node2)) arr.push(node2);
+  /**
+   * Use Manhattan distance
+   * @param startNode
+   * @param endNode
+   */
+  calcDistance(
+    startNode: { row: number; col: number },
+    endNode: { row: number; col: number }
+  ): number | null {
+    const dist =
+      Math.abs(startNode.row - endNode.row) +
+      Math.abs(startNode.col - endNode.col);
 
-    node1 = { ...curr, col: curr.col - 1 };
-    node2 = { ...curr, col: curr.col - 2 };
-    if (this.canPassThrWall(map, node1, node2)) arr.push(node2);
-
-    node1 = { ...curr, col: curr.col + 1 };
-    node2 = { ...curr, col: curr.col + 2 };
-    if (this.canPassThrWall(map, node1, node2)) arr.push(node2);
-
-    return arr;
+    return dist <= MAX_CHEAT ? dist : null;
   }
 
   canPassThrWall(
@@ -154,11 +164,12 @@ export class AppComponent {
 
   reconstructPath(
     node: { parent: any; row: number; col: number } | null
-  ): any[] {
-    if (!node) return [];
+  ): Map<string, number> {
+    const map = new Map();
+    if (!node) return map;
 
-    const path = [];
-    let curr = node;
+    let curr = node,
+      path = [];
 
     while (curr) {
       path.push({ row: curr.row, col: curr.col });
@@ -166,7 +177,9 @@ export class AppComponent {
     }
 
     path.reverse();
-    return path;
+    path.forEach((node, i) => map.set(this.formatLoc(node), i));
+
+    return map;
   }
 
   findPaths(map: any[][], curr: { row: number; col: number }): any[] {
