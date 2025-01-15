@@ -1,173 +1,102 @@
---- Day 20: Race Condition ---
-The Historians are quite pixelated again. This time, a massive, black building looms over you - you're right outside the CPU!
+--- Day 21: Keypad Conundrum ---
+As you teleport onto Santa's Reindeer-class starship, The Historians begin to panic: someone from their search party is missing. A quick life-form scan by the ship's computer reveals that when the missing Historian teleported, he arrived in another part of the ship.
 
-While The Historians get to work, a nearby program sees that you're idle and challenges you to a race. Apparently, you've arrived just in time for the frequently-held race condition festival!
+The door to that area is locked, but the computer can't open it; it can only be opened by physically typing the door codes (your puzzle input) on the numeric keypad on the door.
 
-The race takes place on a particularly long and twisting code path; programs compete to see who can finish in the fewest picoseconds. The winner even gets their very own mutex!
+The numeric keypad has four rows of buttons: 789, 456, 123, and finally an empty gap followed by 0A. Visually, they are arranged like this:
 
-They hand you a map of the racetrack (your puzzle input). For example:
++---+---+---+
+| 7 | 8 | 9 |
++---+---+---+
+| 4 | 5 | 6 |
++---+---+---+
+| 1 | 2 | 3 |
++---+---+---+
+    | 0 | A |
+    +---+---+
+Unfortunately, the area outside the door is currently depressurized and nobody can go near the door. A robot needs to be sent instead.
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#######.#.#.###
-#######.#.#...#
-#######.#.###.#
-###..E#...#...#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-The map consists of track (.) - including the start (S) and end (E) positions (both of which also count as track) - and walls (#).
+The robot has no problem navigating the ship and finding the numeric keypad, but it's not designed for button pushing: it can't be told to push a specific button directly. Instead, it has a robotic arm that can be controlled remotely via a directional keypad.
 
-When a program runs through the racetrack, it starts at the start position. Then, it is allowed to move up, down, left, or right; each such move takes 1 picosecond. The goal is to reach the end position as quickly as possible. In this example racetrack, the fastest time is 84 picoseconds.
+The directional keypad has two rows of buttons: a gap / ^ (up) / A (activate) on the first row and < (left) / v (down) / > (right) on the second row. Visually, they are arranged like this:
 
-Because there is only a single path from the start to the end and the programs all go the same speed, the races used to be pretty boring. To make things more interesting, they introduced a new rule to the races: programs are allowed to cheat.
+    +---+---+
+    | ^ | A |
++---+---+---+
+| < | v | > |
++---+---+---+
+When the robot arrives at the numeric keypad, its robotic arm is pointed at the A button in the bottom right corner. After that, this directional keypad remote control must be used to maneuver the robotic arm: the up / down / left / right buttons cause it to move its arm one button in that direction, and the A button causes the robot to briefly move forward, pressing the button being aimed at by the robotic arm.
 
-The rules for cheating are very strict. Exactly once during a race, a program may disable collision for up to 2 picoseconds. This allows the program to pass through walls as if they were regular track. At the end of the cheat, the program must be back on normal track again; otherwise, it will receive a segmentation fault and get disqualified.
+For example, to make the robot type 029A on the numeric keypad, one sequence of inputs on the directional keypad you could use is:
 
-So, a program could complete the course in 72 picoseconds (saving 12 picoseconds) by cheating for the two moves marked 1 and 2:
+< to move the arm from A (its initial position) to 0.
+A to push the 0 button.
+^A to move the arm to the 2 button and push it.
+>^^A to move the arm to the 9 button and push it.
+vvvA to move the arm to the A button and push it.
+In total, there are three shortest possible sequences of button presses on this directional keypad that would cause the robot to type 029A: <A^A>^^AvvvA, <A^A^>^AvvvA, and <A^A^^>AvvvA.
 
-###############
-#...#...12....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#######.#.#.###
-#######.#.#...#
-#######.#.###.#
-###..E#...#...#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-Or, a program could complete the course in 64 picoseconds (saving 20 picoseconds) by cheating for the two moves marked 1 and 2:
+Unfortunately, the area containing this directional keypad remote control is currently experiencing high levels of radiation and nobody can go near it. A robot needs to be sent instead.
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#######.#.#.###
-#######.#.#...#
-#######.#.###.#
-###..E#...12..#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-This cheat saves 38 picoseconds:
+When the robot arrives at the directional keypad, its robot arm is pointed at the A button in the upper right corner. After that, a second, different directional keypad remote control is used to control this robot (in the same way as the first robot, except that this one is typing on a directional keypad instead of a numeric keypad).
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#######.#.#.###
-#######.#.#...#
-#######.#.###.#
-###..E#...#...#
-###.####1##.###
-#...###.2.#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-This cheat saves 64 picoseconds and takes the program directly to the end:
+There are multiple shortest possible sequences of directional keypad button presses that would cause this robot to tell the first robot to type 029A on the door. One such sequence is v<<A>>^A<A>AvA<^AA>A<vAAA>^A.
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#######.#.#.###
-#######.#.#...#
-#######.#.###.#
-###..21...#...#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-Each cheat has a distinct start position (the position where the cheat is activated, just before the first move that is allowed to go through walls) and end position; cheats are uniquely identified by their start position and end position.
+Unfortunately, the area containing this second directional keypad remote control is currently -40 degrees! Another robot will need to be sent to type on that directional keypad, too.
 
-In this example, the total number of cheats (grouped by the amount of time they save) are as follows:
+There are many shortest possible sequences of directional keypad button presses that would cause this robot to tell the second robot to tell the first robot to eventually type 029A on the door. One such sequence is <vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A.
 
-There are 14 cheats that save 2 picoseconds.
-There are 14 cheats that save 4 picoseconds.
-There are 2 cheats that save 6 picoseconds.
-There are 4 cheats that save 8 picoseconds.
-There are 2 cheats that save 10 picoseconds.
-There are 3 cheats that save 12 picoseconds.
-There is one cheat that saves 20 picoseconds.
-There is one cheat that saves 36 picoseconds.
-There is one cheat that saves 38 picoseconds.
-There is one cheat that saves 40 picoseconds.
-There is one cheat that saves 64 picoseconds.
-You aren't sure what the conditions of the racetrack will be like, so to give yourself as many options as possible, you'll need a list of the best cheats. How many cheats would save you at least 100 picoseconds?
+Unfortunately, the area containing this third directional keypad remote control is currently full of Historians, so no robots can find a clear path there. Instead, you will have to type this sequence yourself.
+
+Were you to choose this sequence of button presses, here are all of the buttons that would be pressed on your directional keypad, the two robots' directional keypads, and the numeric keypad:
+
+<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A
+v<<A>>^A<A>AvA<^AA>A<vAAA>^A
+<A^A>^^AvvvA
+029A
+In summary, there are the following keypads:
+
+One directional keypad that you are using.
+Two directional keypads that robots are using.
+One numeric keypad (on a door) that a robot is using.
+It is important to remember that these robots are not designed for button pushing. In particular, if a robot arm is ever aimed at a gap where no button is present on the keypad, even for an instant, the robot will panic unrecoverably. So, don't do that. All robots will initially aim at the keypad's A key, wherever it is.
+
+To unlock the door, five codes will need to be typed on its numeric keypad. For example:
+
+029A
+980A
+179A
+456A
+379A
+For each of these, here is a shortest sequence of button presses you could type to cause the desired code to be typed on the numeric keypad:
+
+029A: <vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A
+980A: <v<A>>^AAAvA^A<vA<AA>>^AvAA<^A>A<v<A>A>^AAAvA<^A>A<vA>^A<A>A
+179A: <v<A>>^A<vA<A>>^AAvAA<^A>A<v<A>>^AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A
+456A: <v<A>>^AA<vA<A>>^AAvAA<^A>A<vA>^A<A>A<vA>^A<A>A<v<A>A>^AAvA<^A>A
+379A: <v<A>>^AvA^A<vA<AA>>^AAvA<^A>AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A
+The Historians are getting nervous; the ship computer doesn't remember whether the missing Historian is trapped in the area containing a giant electromagnet or molten lava. You'll need to make sure that for each of the five codes, you find the shortest sequence of button presses necessary.
+
+The complexity of a single code (like 029A) is equal to the result of multiplying these two values:
+
+The length of the shortest sequence of button presses you need to type on your directional keypad in order to cause the code to be typed on the numeric keypad; for 029A, this would be 68.
+The numeric part of the code (ignoring leading zeroes); for 029A, this would be 29.
+In the above example, complexity of the five codes can be found by calculating 68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379. Adding these together produces 126384.
+
+Find the fewest number of button presses you'll need to perform in order to cause the robot in front of the door to type each code. What is the sum of the complexities of the five codes on your list?
 
 --- Part Two ---
-The programs seem perplexed by your list of cheats. Apparently, the two-picosecond cheating rule was deprecated several milliseconds ago! The latest version of the cheating rule permits a single cheat that instead lasts at most 20 picoseconds.
+Just as the missing Historian is released, The Historians realize that a second member of their search party has also been missing this entire time!
 
-Now, in addition to all the cheats that were possible in just two picoseconds, many more cheats are possible. This six-picosecond cheat saves 76 picoseconds:
+A quick life-form scan reveals the Historian is also trapped in a locked area of the ship. Due to a variety of hazards, robots are once again dispatched, forming another chain of remote control keypads managing robotic-arm-wielding robots.
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S#...#.#.#...#
-#1#####.#.#.###
-#2#####.#.#...#
-#3#####.#.###.#
-#456.E#...#...#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-Because this cheat has the same start and end positions as the one above, it's the same cheat, even though the path taken during the cheat is different:
+This time, many more robots are involved. In summary, there are the following keypads:
 
-###############
-#...#...#.....#
-#.#.#.#.#.###.#
-#S12..#.#.#...#
-###3###.#.#.###
-###4###.#.#...#
-###5###.#.###.#
-###6.E#...#...#
-###.#######.###
-#...###...#...#
-#.#####.#.###.#
-#.#...#.#.#...#
-#.#.#.#.#.#.###
-#...#...#...###
-###############
-Cheats don't need to use all 20 picoseconds; cheats can last any amount of time up to and including 20 picoseconds (but can still only end when the program is on normal track). Any cheat time not used is lost; it can't be saved for another cheat later.
+One directional keypad that you are using.
+25 directional keypads that robots are using.
+One numeric keypad (on a door) that a robot is using.
+The keypads form a chain, just like before: your directional keypad controls a robot which is typing on a directional keypad which controls a robot which is typing on a directional keypad... and so on, ending with the robot which is typing on the numeric keypad.
 
-You'll still need a list of the best cheats, but now there are even more to choose between. Here are the quantities of cheats in this example that save 50 picoseconds or more:
+The door codes are the same this time around; only the number of robots and directional keypads has changed.
 
-There are 32 cheats that save 50 picoseconds.
-There are 31 cheats that save 52 picoseconds.
-There are 29 cheats that save 54 picoseconds.
-There are 39 cheats that save 56 picoseconds.
-There are 25 cheats that save 58 picoseconds.
-There are 23 cheats that save 60 picoseconds.
-There are 20 cheats that save 62 picoseconds.
-There are 19 cheats that save 64 picoseconds.
-There are 12 cheats that save 66 picoseconds.
-There are 14 cheats that save 68 picoseconds.
-There are 12 cheats that save 70 picoseconds.
-There are 22 cheats that save 72 picoseconds.
-There are 4 cheats that save 74 picoseconds.
-There are 3 cheats that save 76 picoseconds.
-Find the best cheats using the updated cheating rules. How many cheats would save you at least 100 picoseconds?
+Find the fewest number of button presses you'll need to perform in order to cause the robot in front of the door to type each code. What is the sum of the complexities of the five codes on your list?
