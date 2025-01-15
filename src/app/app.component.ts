@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const ROBOT_NUM = 2;
+const ROBOT_NUM = 25;
 
 const NUMERIC_KEYPAD = `7 8 9
 4 5 6
@@ -22,7 +22,7 @@ interface Node {
   row: number;
   col: number;
   parent?: Node;
-  direction: string;
+  direction?: string;
   count?: number;
 }
 
@@ -43,12 +43,17 @@ export class AppComponent {
 379A`;
 
   result = signal('');
-  pathMap = new Map<string, SearchResult[]>();
+  pathMap = new Map<string, string[]>();
+  iterationMap = new Map<string, number>();
+  directionalMap: string[][] = [];
+  numericMap: string[][] = [];
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
+      this.directionalMap = this.parseMap(DIRECTIONAL_KEYPAD);
+      this.numericMap = this.parseMap(NUMERIC_KEYPAD);
       const input = this.parseRow(this.input);
       const total = this.start(input);
       this.result.set(`${total}`);
@@ -57,35 +62,18 @@ export class AppComponent {
 
   start(lines: string[]): number {
     let total = 0;
-    this.pathMap.clear();
+    this.iterationMap.clear();
 
     lines.forEach((line) => {
-      const sequence = this.getSequence(line);
+      const sequence = this.findNextSeqLength(line, ROBOT_NUM);
       total += this.getCodeComplexity(line, sequence);
     });
     return total;
   }
 
-  getSequence(line: string): string {
-    let arr = this.searchKeypad(line, false);
-    let robots = ROBOT_NUM;
-
-    while (robots > 0) {
-      let tempArr: any[] = [];
-      arr.forEach((seq) => {
-        const result = this.searchKeypad(seq);
-        tempArr = [...tempArr, ...result];
-      });
-      arr = this.findShortestStrings(tempArr);
-      robots--;
-    }
-
-    return arr[0];
-  }
-
-  findShortestStrings(arr: any[]) {
+  findShortestStringLength(arr: any[]): number {
     if (arr.length === 0) {
-      return [];
+      return 0;
     }
 
     let minLength = arr[0].length;
@@ -95,64 +83,68 @@ export class AppComponent {
       }
     }
 
-    const result = [];
-    for (let i = 0; i < arr.length; i++) {
-      if (arr[i].length === minLength) {
-        result.push(arr[i]);
-      }
+    return minLength;
+  }
+
+  getCodeComplexity(code: string, seqLength: number) {
+    return this.getDigit(code) * seqLength;
+  }
+
+  findNextSeqLength(prevSeq: string, iteration: number): number {
+    const map = iteration < ROBOT_NUM ? this.directionalMap : this.numericMap;
+
+    let count = 0;
+    let start = this.getLoc(map, ACTIVATE);
+    const arr = [];
+    let total = 0;
+
+    while (start && count < prevSeq.length) {
+      const seqs = this.getPath(map, start, prevSeq[count]);
+      arr.push(seqs);
+      start = this.getLoc(map, prevSeq[count]);
+      count++;
     }
 
-    return result;
-  }
-
-  getCodeComplexity(code: string, sequence: string) {
-    return this.getDigit(code) * sequence.length;
-  }
-
-  searchKeypad(line: string, directional = true): string[] {
-    let start = directional ? { row: 0, col: 2 } : { row: 3, col: 2 };
-    const map = this.parseRow(
-      directional ? DIRECTIONAL_KEYPAD : NUMERIC_KEYPAD
-    ).map((line) => line.trim().split(/\s*[\s,]\s*/));
-    let arr: any[] = [];
-
-    for (let i = 0; i < line.length; i++) {
-      const goal = line[i];
-      const sequences = this.getPathFromKeypad(map, start, goal);
-      if (sequences) {
-        arr = this.generatePermutations(
-          arr,
-          sequences.map(this.reconstructPath)
-        );
-        start = { row: sequences[0].row, col: sequences[0].col };
+    if (iteration === 0) {
+      total = this.findBaseSeqLength(arr);
+    } else {
+      for (let x = 0; x < arr.length; x++) {
+        const subTotal: any[] = [];
+        for (let y = 0; y < arr[x].length; y++) {
+          if (this.iterationMap.has(`${arr[x][y]}-${iteration - 1}`))
+            subTotal.push(
+              this.iterationMap.get(`${arr[x][y]}-${iteration - 1}`)
+            );
+          else subTotal.push(this.findNextSeqLength(arr[x][y], iteration - 1));
+        }
+        total += Math.min(...subTotal);
       }
     }
-
-    return arr;
+    this.iterationMap.set(`${prevSeq}-${iteration}`, total);
+    return total;
   }
 
-  generatePermutations(arr1: any[], arr2: any[]): any[] {
-    const arr: any[] = [];
+  findBaseSeqLength(arr: string[][]) {
+    let total = 0;
+    for (let x = 0; x < arr.length; x++) {
+      total += this.findShortestStringLength(arr[x]);
+    }
+    return total;
+  }
 
-    if (!arr1.length && !arr2.length) return arr;
-    if (!arr1.length) return arr2;
-    if (!arr2.length) return arr1;
-
-    for (let x = 0; x < arr1.length; x++) {
-      for (let y = 0; y < arr2.length; y++) {
-        arr.push(`${arr1[x]}${arr2[y]}`);
+  getLoc(map: any[][], goal: string): Node | null {
+    for (let row = 0; row < map.length; row++) {
+      for (let col = 0; col < map[0].length; col++) {
+        if (map[row][col] === goal) return { row, col };
       }
     }
-    return arr;
+    return null;
   }
 
-  getPathFromKeypad(
-    map: any[][],
-    start: { row: number; col: number },
-    goal: string
-  ): SearchResult[] {
-    if (map[start.row][start.col] === goal)
-      return [{ ...start, direction: '' }];
+  getPath(map: any[][], start: Node, goal: string): string[] {
+    if (map[start.row][start.col] === goal) {
+      return [ACTIVATE];
+    }
 
     const key = `${map[start.row][start.col]}-${goal}`;
     if (this.pathMap.has(key)) {
@@ -167,7 +159,7 @@ export class AppComponent {
     map: any[][],
     start: { row: number; col: number },
     goal: string
-  ): SearchResult[] {
+  ): string[] {
     const visited = new Set();
     const queue: any[] = [];
     const arr: any[] = [];
@@ -181,23 +173,24 @@ export class AppComponent {
 
       if (s) {
         if (this.isGoal(map, s, goal)) {
-          const length = this.reconstructPath(s).length;
-          if (minLength >= length) {
-            arr.push(s);
-            minLength = length;
+          const path = this.reconstructPath(s);
+          if (minLength >= path.length) {
+            arr.push(path);
+            minLength = path.length;
           }
         } else {
           if (s.count <= minLength) {
-            const paths = this.findPaths(map, s);
-            paths.forEach((path) => {
-              const node = { ...path, parent: s, count: s.count + 1 };
-              visited.add(this.formatLoc(path));
-              queue.push(node);
-            });
+            const nodes = this.findPaths(map, s);
+            nodes
+              .filter((node) => !visited.has(this.formatLoc(node)))
+              .forEach((node) => {
+                const q = { ...node, parent: s, count: s.count + 1 };
+                queue.push(q);
+              });
           }
         }
       }
-      visited.add(this.formatLoc(start));
+      visited.add(this.formatLoc(s));
     }
     return arr;
   }
@@ -235,13 +228,13 @@ export class AppComponent {
     let node = null;
     const arr: any[] = [];
 
-    node = { row: curr.row - 1, col: curr.col, direction: UP };
+    node = { row: curr.row, col: curr.col - 1, direction: LEFT };
     if (this.validNode(map, node)) arr.push(node);
 
     node = { row: curr.row + 1, col: curr.col, direction: DOWN };
     if (this.validNode(map, node)) arr.push(node);
 
-    node = { row: curr.row, col: curr.col - 1, direction: LEFT };
+    node = { row: curr.row - 1, col: curr.col, direction: UP };
     if (this.validNode(map, node)) arr.push(node);
 
     node = { row: curr.row, col: curr.col + 1, direction: RIGHT };
@@ -267,16 +260,16 @@ export class AppComponent {
     );
   }
 
-  isGoal(
-    map: any[][],
-    curr: { row: number; col: number },
-    goal: string
-  ): boolean {
+  isGoal(map: any[][], curr: Node, goal: string): boolean {
     return map[curr.row][curr.col] === goal;
   }
 
-  formatLoc(currPos: { row: number; col: number }) {
+  formatLoc(currPos: Node) {
     return [currPos.row, currPos.col].join('-');
+  }
+
+  parseMap(map: string) {
+    return this.parseRow(map).map((line) => line.trim().split(/\s*[\s,]\s*/));
   }
 
   parseRow(data: any): any[] {
