@@ -1,8 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-const SECRET_NUM_COUNT = 2000;
-
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -11,158 +9,142 @@ const SECRET_NUM_COUNT = 2000;
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `1
-2
-3
-2024`;
+  input = `kh-tc
+qp-kh
+de-cg
+ka-co
+yn-aq
+qp-ub
+cg-tb
+vc-aq
+tb-ka
+wh-tc
+yn-cg
+kh-ub
+ta-co
+de-co
+tc-td
+tb-wq
+wh-td
+ta-ka
+td-qp
+aq-cg
+wq-ub
+ub-vc
+de-ta
+wq-aq
+wq-vc
+wh-yn
+ka-de
+kh-ta
+co-tc
+wh-qp
+tb-vc
+td-yn`;
 
   result = signal('');
+  connections = new Set<string>();
+  network = new Set<string>();
 
   onSubmit() {
     this.result.set(`...waiting`);
 
     setTimeout(() => {
-      const input = this.parseRow(this.input).map((line) => BigInt(line));
+      const input = this.parseRow(this.input);
       const total = this.start(input);
       this.result.set(`${total}`);
     }, 0);
   }
 
-  start(lines: bigint[]): number {
-    const arr: any[] = [];
+  start(lines: string[]): number {
+    this.connections.clear();
+    this.network.clear();
 
-    const { dataTable, seqChanges } = this.generateDataTable(lines);
-    Array.from(seqChanges.keys()).forEach((seq) => {
-      let total = 0;
-      Array.from(dataTable.values()).forEach((item, i) => {
-        if (item.seqChanges.has(seq)) {
-          total += item.seqChanges.get(seq);
-        }
-      });
-      arr.push({ seq, total });
+    lines.forEach((line) => {
+      const items = line.split('-');
+      items.sort();
+      this.connections.add(items.join('-'));
     });
 
-    return this.findMax(arr);
-  }
-
-  findMax(arr: any[]): number {
-    let max = -Infinity;
-
-    arr.forEach((item) => {
-      if (max < item.total) max = item.total;
+    lines.forEach((line) => {
+      const result = this.findConnections(lines, line, 0);
+      if (result && result.length) {
+        result.forEach((item) => this.network.add(item));
+      }
     });
-
-    return max;
+    return this.network.size;
   }
 
-  generateDataTable(lines: bigint[]) {
-    let count = 0;
-    let dataTable = new Map<number, any>();
-    let seqChanges = new Set();
+  startWith(network: string, letter: string): boolean {
+    const arr = network.split('-');
+    return arr.some((item) => item.startsWith(letter));
+  }
 
-    while (count < SECRET_NUM_COUNT + 1) {
-      for (let i = 0; i < lines.length; i++) {
-        if (count === 0) {
-          const data = this.initDataTableValue(lines[i]);
-          dataTable.set(i, data);
-        } else {
-          let data = dataTable.get(i);
-          if (data) {
-            const prevPrice = data.curr;
-            data.curr = this.findNextSecretNumber(data.curr);
-            data.priceChanges.push(
-              this.getPriceChangeValue(data.curr, prevPrice)
-            );
-            if (count >= 4) {
-              const { key, value } = this.getSeqChangeValue(
-                data.seqChanges,
-                data.priceChanges.slice(count - 3),
-                data.curr
-              );
-              data.seqChanges.set(key, value);
-              seqChanges.add(key);
-            }
-            dataTable.set(i, data);
-          }
+  findConnections(
+    lines: string[],
+    link: string,
+    iter: number
+  ): string[] | null {
+    const indices = lines
+      .map((item, i) =>
+        this.containsComputers(link, item, iter === 1) ? i : -1
+      )
+      .filter((idx) => idx !== -1);
+    if (indices.length) {
+      const arr: any[] = [];
+      for (let i = 0; i < indices.length; i++) {
+        const l = lines[indices[i]];
+
+        if (iter === 1) {
+          return [l];
+        }
+        const diff = this.findDifference(link, lines[indices[i]]);
+        if (this.connections.has(diff)) {
+          const r = Array.from(
+            new Set([...link.split('-'), ...diff.split('-')])
+          );
+          r.sort();
+          arr.push(r.join('-'));
         }
       }
-      count++;
+      return arr;
+    }
+    return null;
+  }
+
+  findDifference(str1: string, str2: string): string {
+    const arr1 = str1.split('-');
+    const arr2 = str2.split('-');
+    return arr1
+      .filter((x) => !arr2.includes(x))
+      .concat(arr2.filter((x) => !arr1.includes(x)))
+      .join('-');
+  }
+
+  containsComputers(
+    computerList: string,
+    computers: string,
+    exact = false
+  ): boolean {
+    if (computerList === computers) {
+      return false;
+    }
+    const set1 = new Set(computerList.split('-'));
+    const arr = computers.split('-');
+    const a = Array.from(new Set([...set1, ...arr]));
+    a.sort();
+
+    if (!this.startWith(a.join('-'), 't')) {
+      return false;
     }
 
-    return { seqChanges, dataTable };
-  }
-
-  getSeqChangeValue(
-    map: Map<string, number>,
-    arr: any[],
-    curr: bigint
-  ): { key: string; value: number } {
-    const key = arr.map((item) => item.change).join(',');
-    const newPrice = this.getLastDigit(curr);
-    const currPrice = map.get(key);
-
-    return {
-      key,
-      value: currPrice === undefined   // only keep first time it appears
-        ? newPrice
-        : currPrice,
-    };
-  }
-
-  hasPriceChanges(arr: any[]): boolean {
-    return arr.every((item) => item.change !== null);
-  }
-
-  getPriceChangeValue(curr: bigint, prev: bigint | null) {
-    const price = this.getLastDigit(curr);
-    return {
-      price,
-      change: prev !== null ? price - this.getLastDigit(prev) : null,
-    };
-  }
-
-  initDataTableValue(num: bigint) {
-    return {
-      curr: num,
-      priceChanges: [this.getPriceChangeValue(num, null)],
-      seqChanges: new Map(),
-    };
-  }
-
-  findNextSecretNumber(orgSecretNum: bigint): bigint {
-    let secretNum = BigInt(orgSecretNum);
-    let count = 0;
-
-    while (count < 3) {
-      let result = secretNum;
-      switch (count) {
-        case 0:
-          result = BigInt(secretNum * BigInt(64));
-          break;
-        case 1:
-          result = secretNum / BigInt(32);
-          break;
-        case 2:
-          result = secretNum * BigInt(2048);
-          break;
-      }
-      secretNum = this.mix(secretNum, result);
-      secretNum = this.prune(secretNum);
-      count++;
+    if (this.network.has(a.join('-'))) {
+      return false;
     }
-    return secretNum;
-  }
 
-  mix(secretNum: bigint, mixValue: bigint): bigint {
-    return BigInt(secretNum) ^ BigInt(mixValue);
-  }
-
-  prune(secretNum: bigint): bigint {
-    return secretNum % BigInt(16777216);
-  }
-
-  getLastDigit(num: bigint): number {
-    return Number(num % BigInt(10));
+    return exact
+      ? arr.every((element) => set1.has(element))
+      : arr.some((element) => set1.has(element));
   }
 
   parseRow(data: any): any[] {
