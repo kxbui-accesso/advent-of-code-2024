@@ -1,10 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-/**
- * CLIQUE problem (NP Complete)
- * Bron-Kerbosch Algorithm
- */
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -13,38 +9,16 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  input = `kh-tc
-qp-kh
-de-cg
-ka-co
-yn-aq
-qp-ub
-cg-tb
-vc-aq
-tb-ka
-wh-tc
-yn-cg
-kh-ub
-ta-co
-de-co
-tc-td
-tb-wq
-wh-td
-ta-ka
-td-qp
-aq-cg
-wq-ub
-ub-vc
-de-ta
-wq-aq
-wq-vc
-wh-yn
-ka-de
-kh-ta
-co-tc
-wh-qp
-tb-vc
-td-yn`;
+  input = `x00: 1
+x01: 1
+x02: 1
+y00: 0
+y01: 1
+y02: 0
+
+x00 AND y00 -> z00
+x01 XOR y01 -> z01
+x02 OR y02 -> z02`;
 
   result = signal('');
 
@@ -58,105 +32,83 @@ td-yn`;
     }, 0);
   }
 
-  start(lines: string[]): string {
-    const connections = this.buildConnectionMap(lines);
-    const P = this.getAllVertices(lines);
-    const result = new Set<string>();
+  start(lines: string[]): number {
+    const { wireMap, gateWireList } = this.parseInput(lines);
+    let pendingList: any[] = [];
 
-    this.findCliques(new Set(), P, new Set(), connections, result);
-
-    return this.findMaxClique(result);
-  }
-
-  findMaxClique(set: Set<string>): string {
-
-    const arr = Array.from([...set]);
-    let maxLength = -Infinity;
-    let str = '';
-
-    arr.forEach(item => {
-      const length = item.split(',').length;
-      if (maxLength < length) {
-        maxLength = length;
-        str = item;
+    gateWireList.forEach((item) => {
+      const input1 = wireMap.get(item.input1);
+      const input2 = wireMap.get(item.input2);
+      if ([input1, input2].every((val) => val !== undefined)) {
+        wireMap.set(item.output, this.connectWires(input1!, input2!, item.opr));
+      } else {
+        pendingList.push(item);
       }
-    })
+    });
 
-    return str;
+    while (pendingList.length) {
+      const item = pendingList[0];
+      const input1 = wireMap.get(item.input1);
+      const input2 = wireMap.get(item.input2);
+      if ([input1, input2].every((val) => val !== undefined)) {
+        wireMap.set(item.output, this.connectWires(input1!, input2!, item.opr));
+        pendingList.shift();
+      } else {
+        const item = pendingList.shift();
+        pendingList.push(item);
+      }
+    }
+    return this.getOutput(wireMap);
   }
 
-  findCliques(
-    R: Set<string>,
-    P: Set<string>,
-    X: Set<string>,
-    connections: Map<string, Set<string>>,
-    result: Set<string>
-  ): void {
-    if (!P.size && !X.size) {
-      const arr = Array.from(R.values());
-      arr.sort()
-      result.add(arr.join(','));
-      return;
+  getOutput(wireMap: Map<string, number>): number {
+    const arr = Array.from(wireMap.entries()).filter(([key]) =>
+      key.startsWith('z')
+    );
+    arr.sort().reverse();
+    return parseInt(
+      arr.reduce((str, [_, val]) => `${str}${val}`, ''),
+      2
+    );
+  }
+
+  connectWires(input1: number, input2: number, oper: string): number {
+    switch (oper) {
+      case 'AND':
+        return Number(input1 & input2);
+      case 'XOR':
+        return Number(input1 ^ input2);
+      case 'OR':
+        return Number(input1 || input2);
+    }
+    return -1;
+  }
+
+  parseInput(lines: string[]): {
+    wireMap: Map<string, number>;
+    gateWireList: any[];
+  } {
+    let count = 0;
+    const wireMap = new Map<string, number>();
+    while (lines[count].trim()) {
+      const [wire, val] = lines[count].split(':');
+      wireMap.set(wire.trim(), Number(val));
+      count++;
     }
 
-    const arr = Array.from(P.values());
-    arr.forEach((v) => {
-      const neighbors = connections.get(v)!;
-
-      this.findCliques(
-        new Set([...R]).add(v),
-        this.findIntersection(P, neighbors),
-        this.findIntersection(X, neighbors),
-        connections,
-        result
-      );
-
-      P.delete(v);
-      X.add(v);
-    });
-  }
-
-  buildConnectionMap(lines: string[]): Map<string, Set<string>> {
-    let map = new Map<string, Set<string>>();
-
-    lines.forEach((line) => {
-      const [a, b] = line.split('-');
-      map = this.addToMap(map, a, b);
-      map = this.addToMap(map, b, a);
+    const gateWireList: any[] = [];
+    lines.slice(++count).forEach((line) => {
+      const [input, output] = line.split('->');
+      const [input1, opr, input2] = input.split(/\s*[\s,]\s*/);
+      gateWireList.push({
+        input1: input1.trim(),
+        opr: opr.trim(),
+        input2: input2.trim(),
+        output: output.trim(),
+      });
     });
 
-    return map;
-  }
-
-  getAllVertices(lines: string[]): Set<string> {
-    const set = new Set<string>();
-
-    lines.forEach((line) => {
-      const [a, b] = line.split('-');
-      set.add(a).add(b);
-    });
-
-    return set;
-  }
-
-  addToMap(
-    map: Map<string, Set<string>>,
-    key: string,
-    value: string
-  ): Map<string, Set<string>> {
-    map.has(key)
-      ? map.set(key, new Set([...map.get(key)!, value]))
-      : map.set(key, new Set([value]));
-    return map;
-  }
-
-  startWith(network: string, letter: string): boolean {
-    const arr = network.split('-');
-    return arr.some((item) => item.startsWith(letter));
-  }
-
-  findIntersection(set1: Set<string>, set2: Set<string>): Set<string> {
-    return new Set([...set1].filter((i) => set2.has(i)));
+    return { wireMap, gateWireList };
   }
 
   parseRow(data: any): any[] {
