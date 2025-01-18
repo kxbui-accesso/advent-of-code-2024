@@ -101,8 +101,6 @@ So, in this example, the number of unique lock/key pairs that fit together witho
 
 Analyze your lock and key schematics. How many unique lock/key pairs fit together without overlapping in any column?
 
-Your puzzle answer was 3508.
-
 --- Part Two ---
 You and The Historians crowd into the office, startling the Chief Historian awake! The Historians all take turns looking confused until one asks where he's been for the last few months.
 
